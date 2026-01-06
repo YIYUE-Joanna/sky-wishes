@@ -5,102 +5,86 @@ from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
 
-# --- 1. 初始化设置 ---
-st.set_page_config(page_title="Sky Wishes", page_icon="🏮", layout="wide")
+# --- 1. 视觉主题与 CSS 注入 ---
+st.set_page_config(page_title="SkyWishes Portal", page_icon="🏮", layout="wide")
 
-# 初始化 Cookie 管理器 (用于记住浏览器访客)
+st.markdown("""
+    <style>
+    .stApp {
+        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        color: #ffffff;
+    }
+    .kanban-card {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+    .step-label {
+        color: #FFD700;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        margin-bottom: 0.5rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 2. 基础初始化 ---
 cookies = EncryptedCookieManager(password="SkyWishes_Secure_2026")
-if not cookies.ready():
-    st.stop()
+if not cookies.ready(): st.stop()
 
-# 初始化 Supabase
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
-# 获取或生成 Guest ID
 if "guest_id" not in cookies:
     cookies["guest_id"] = str(uuid.uuid4())
     cookies.save()
 current_guest_id = cookies["guest_id"]
 
-# --- 2. 语言与文本配置 (默认英文) ---
+# --- 3. 语言配置 ---
 LANGS = {
     "English": {
-        "title": "🏮 Sky Wishes",
-        "lantern": "Sky Lanterns",
-        "wish_label": "Make your wish for 2026...",
+        "title": "🏮 SkyWishes Portal",
+        "subtitle": "Manifest your 2026 aspirations into the stellar void.",
+        "wish_label": "What is your heart's desire for the new year?",
         "launch_btn": "Launch Sky Lantern",
-        "history_title": "My Personal Memories",
-        "login_msg": "Login to sync wishes across devices.",
-        "merge_msg": "Guest history merged successfully!",
-        "step_hint": "Action Kanban (Edit directly)",
-        "loading": "Architecting your wish..."
+        "history_title": "✨ Celestial Memories",
+        "step_hint": "Action Roadmap (Click to refine)",
+        "loading": "Architecting your path...",
+        "lantern": "Sky Lantern"
     },
     "中文": {
-        "title": "🏮 Sky Wishes (孔明灯)",
-        "lantern": "孔明灯",
+        "title": "🏮 SkyWishes | 孔明灯广场",
+        "subtitle": "点亮 2026 的期许，让每一个愿望在星空下有迹可循。",
         "wish_label": "许下你的 2026 新年愿望...",
-        "launch_btn": "点亮孔明灯",
-        "history_title": "我的专属记忆",
-        "login_msg": "登录后可跨设备同步您的所有愿望。",
-        "merge_msg": "检测到访客记录，已自动合并！",
-        "step_hint": "行动看板（点击内容可直接修改）",
-        "loading": "架构师正在规划..."
+        "launch_btn": "点亮并放飞孔明灯",
+        "history_title": "✨ 往昔星火 (历史记忆)",
+        "step_hint": "行动看板 (点击内容可直接微调)",
+        "loading": "愿望架构师正在规划路径...",
+        "lantern": "孔明灯"
     }
 }
 
-# --- 3. 顶部 UI：标题与右上角语言切换 ---
-header_col1, header_col2 = st.columns([8, 2])
-with header_col2:
-    # 语言切换器
-    sel_lang = st.selectbox("", ["English", "中文"], label_visibility="collapsed")
-
+sel_lang = st.sidebar.selectbox("Language / 语言", ["English", "中文"])
 T = LANGS[sel_lang]
 
-with header_col1:
-    st.title(T["title"])
+st.title(T["title"])
+st.markdown(f"*{T['subtitle']}*")
 
-# --- 4. 侧边栏：用户系统 ---
-with st.sidebar:
-    st.header("Account / 账户")
-    u_id = st.session_state.get("u_id")
-    
-    if not u_id:
-        mode = st.radio("Mode", ["Guest", "Login", "Sign Up"])
-        email = st.text_input("Email")
-        pw = st.text_input("Password", type="password")
-        
-        if mode == "Sign Up" and st.button("Create"):
-            supabase.auth.sign_up({"email": email, "password": pw})
-            st.info("Check email to confirm!")
-            
-        if mode == "Login" and st.button("Sign In"):
-            res = supabase.auth.sign_in_with_password({"email": email, "password": pw})
-            if res.user:
-                st.session_state["u_id"] = res.user.id
-                # 合并历史记录
-                supabase.table("wish_history").update({"user_id": res.user.id}).eq("guest_id", current_guest_id).execute()
-                st.success(T["merge_msg"])
-                st.rerun()
-    else:
-        st.success(f"Logged in as: {email if 'email' in locals() else 'User'}")
-        if st.button("Log out"):
-            st.session_state.clear()
-            st.rerun()
+# --- 4. 愿望发射中心 ---
+user_wish = st.text_input(T["wish_label"], placeholder="e.g. Mastering AI development in 2026")
 
-# --- 5. 主愿望发射区 ---
-user_wish = st.text_input(T["wish_label"])
-
-if st.button(T["launch_btn"]):
+if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
         with st.spinner(T["loading"]):
-            # 调用 CrewAI
-            inputs = {'wish': user_wish}
-            result = MyProjectCrew().crew().kickoff(inputs=inputs)
+            result = MyProjectCrew().crew().kickoff(inputs={'wish': user_wish})
             data = result.pydantic 
 
-            # 存入数据库
             db_entry = {
                 "guest_id": current_guest_id,
                 "user_id": st.session_state.get("u_id"),
@@ -110,38 +94,35 @@ if st.button(T["launch_btn"]):
             }
             supabase.table("wish_history").insert(db_entry).execute()
             
-            # 解决 UI 不显示的关键：存入 Session 并刷新
             st.session_state["last_plan"] = data.dict()
+            st.balloons() # 烟花升空感
             st.rerun()
 
-# --- 6. 核心 UI 展示：当前生成的计划 ---
+# --- 5. Kanban 看板展示 ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
-    with st.container(border=True):
-        st.subheader(f"✨ {plan.get('lantern_name', T['lantern'])}")
-        st.write(plan.get('response', ''))
-        
-        st.divider()
-        st.caption(T["step_hint"])
-        cols = st.columns(3)
-        for i, s in enumerate(plan.get('steps', [])):
-            with cols[i % 3]:
-                st.info(f"**Step {i+1}**\n\n{s}")
+    st.divider()
+    st.subheader(f"✨ {plan.get('lantern_name', T['lantern'])}")
+    st.write(plan.get('response', ''))
+    
+    st.markdown(f"#### 📋 {T['step_hint']}")
+    steps = plan.get('steps', [])
+    if steps:
+        cols = st.columns(len(steps))
+        for i, s in enumerate(steps):
+            with cols[i]:
+                st.markdown(f'<div class="kanban-card"><div class="step-label">Step {i+1}</div>{s}</div>', unsafe_allow_html=True)
+                st.text_area("Edit", s, key=f"edit_{i}", label_visibility="collapsed")
 
-# --- 7. 历史记忆区 ---
+# --- 6. 历史记忆 ---
 st.divider()
 st.subheader(T["history_title"])
+q = supabase.table("wish_history").select("*").eq("guest_id", current_guest_id).order("created_at", desc=True).execute()
 
-q = supabase.table("wish_history").select("*")
-if st.session_state.get("u_id"):
-    q = q.eq("user_id", st.session_state["u_id"])
-else:
-    q = q.eq("guest_id", current_guest_id)
-
-history = q.order("created_at", desc=True).execute()
-
-for item in history.data:
+for item in q.data:
     with st.expander(f"🏮 {item['wish_text']} ({item['created_at'][:10]})"):
         p = item['plan_json']
         st.write(p.get('response', ''))
-        st.json(p.get('steps', []))
+        h_cols = st.columns(len(p.get('steps', [])))
+        for idx, s in enumerate(p.get('steps', [])):
+            h_cols[idx].info(f"**Step {idx+1}**\n{s}")
