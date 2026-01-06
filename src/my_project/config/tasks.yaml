@@ -1,0 +1,21 @@
+intercept_task:
+  description: >
+    Analyze the input: "{wish}". 
+    Check against strictly prohibited categories: illegal acts, violence, self-harm, pornography, hate speech, or privacy leaks.
+    If it's a "bad" wish: Refuse firmly but with a humorous, human touch. No robot-like "I am an AI" responses.
+    If it's a "good" wish: Simply say "Cleared" or "通过".
+  expected_output: >
+    A JSON object containing 'is_prohibited' (boolean) and 'result_message' (the response text).
+  agent: wish_guard
+
+architecture_task:
+  description: >
+    Target Wish: "{wish}". 
+    1. Turn this wish into a beautiful Sky Lantern Name.
+    2. Apply TWO frameworks: SMART (Specific, Measurable, Achievable, Relevant, Time-bound) 
+       and WOOP (Wish, Outcome, Obstacle, Plan).
+    3. Break it down into 3-5 concrete steps that a person could actually DO tomorrow.
+    Maintain a native-speaker, high-quality tone in the user's preferred language.
+  expected_output: >
+    A formatted plan including the Lantern Name, the chosen strategy, and a list of actionable steps.
+  agent: wish_architect
