@@ -1,6 +1,9 @@
+import os
+# 必须在导入任何 crewai 相关包之前设置，以禁用遥测信号报错
+os.environ["OTEL_SDK_DISABLED"] = "true"
+
 import streamlit as st
 import uuid
-import os
 from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
@@ -35,12 +38,15 @@ st.markdown("""
 
 # --- 2. 基础初始化 ---
 cookies = EncryptedCookieManager(password="SkyWishes_Secure_2026")
-if not cookies.ready(): st.stop()
+if not cookies.ready(): 
+    st.stop()
 
+# 从 Secrets 获取配置
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
+# 管理 Guest ID
 if "guest_id" not in cookies:
     cookies["guest_id"] = str(uuid.uuid4())
     cookies.save()
@@ -56,7 +62,8 @@ LANGS = {
         "history_title": "✨ Celestial Memories",
         "step_hint": "Action Roadmap (Click to refine)",
         "loading": "Architecting your path...",
-        "lantern": "Sky Lantern"
+        "lantern": "Sky Lantern",
+        "db_error": "Database access denied. Please check RLS policies."
     },
     "中文": {
         "title": "🏮 SkyWishes | 孔明灯广场",
@@ -66,7 +73,8 @@ LANGS = {
         "history_title": "✨ 往昔星火 (历史记忆)",
         "step_hint": "行动看板 (点击内容可直接微调)",
         "loading": "愿望架构师正在规划路径...",
-        "lantern": "孔明灯"
+        "lantern": "孔明灯",
+        "db_error": "数据库访问受限，请检查 RLS 策略设置。"
     }
 }
 
@@ -82,21 +90,29 @@ user_wish = st.text_input(T["wish_label"], placeholder="e.g. Mastering AI develo
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
         with st.spinner(T["loading"]):
-            result = MyProjectCrew().crew().kickoff(inputs={'wish': user_wish})
-            data = result.pydantic 
+            try:
+                # 运行 CrewAI
+                result = MyProjectCrew().crew().kickoff(inputs={'wish': user_wish})
+                data = result.pydantic 
 
-            db_entry = {
-                "guest_id": current_guest_id,
-                "user_id": st.session_state.get("u_id"),
-                "wish_text": user_wish,
-                "plan_json": data.dict(),
-                "lang": sel_lang
-            }
-            supabase.table("wish_history").insert(db_entry).execute()
-            
-            st.session_state["last_plan"] = data.dict()
-            st.balloons() # 烟花升空感
-            st.rerun()
+                # 准备数据库数据
+                db_entry = {
+                    "guest_id": current_guest_id,
+                    "user_id": st.session_state.get("u_id"),
+                    "wish_text": user_wish,
+                    "plan_json": data.dict(),
+                    "lang": sel_lang
+                }
+                
+                # 尝试写入数据库
+                supabase.table("wish_history").insert(db_entry).execute()
+                
+                # 更新状态并跳转
+                st.session_state["last_plan"] = data.dict()
+                st.balloons() 
+                st.rerun()
+            except Exception as e:
+                st.error(f"{T['db_error']} Details: {e}")
 
 # --- 5. Kanban 看板展示 ---
 if "last_plan" in st.session_state:
@@ -117,12 +133,19 @@ if "last_plan" in st.session_state:
 # --- 6. 历史记忆 ---
 st.divider()
 st.subheader(T["history_title"])
-q = supabase.table("wish_history").select("*").eq("guest_id", current_guest_id).order("created_at", desc=True).execute()
 
-for item in q.data:
-    with st.expander(f"🏮 {item['wish_text']} ({item['created_at'][:10]})"):
-        p = item['plan_json']
-        st.write(p.get('response', ''))
-        h_cols = st.columns(len(p.get('steps', [])))
-        for idx, s in enumerate(p.get('steps', [])):
-            h_cols[idx].info(f"**Step {idx+1}**\n{s}")
+try:
+    # 尝试读取历史记录
+    q = supabase.table("wish_history").select("*").eq("guest_id", current_guest_id).order("created_at", desc=True).execute()
+
+    for item in q.data:
+        with st.expander(f"🏮 {item['wish_text']} ({item['created_at'][:10]})"):
+            p = item['plan_json']
+            st.write(p.get('response', ''))
+            h_steps = p.get('steps', [])
+            if h_steps:
+                h_cols = st.columns(len(h_steps))
+                for idx, s in enumerate(h_steps):
+                    h_cols[idx].info(f"**Step {idx+1}**\n{s}")
+except Exception as e:
+    st.warning(f"Could not load history: {e}")
