@@ -1,5 +1,5 @@
 import os
-# 彻底禁用遥测信号报错，确保多线程环境下运行稳定
+# 禁用遥测信号报错，防止 Streamlit 多线程冲突
 os.environ["OTEL_SDK_DISABLED"] = "true"
 
 import streamlit as st
@@ -8,62 +8,46 @@ from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
 
-# --- 1. 页面配置 ---
+# --- 1. 页面配置与视觉注入 ---
 st.set_page_config(
     page_title="SkyWishes Portal", 
     page_icon="🏮", 
     layout="wide",
-    initial_sidebar_state="expanded" # 侧边栏初始展开
+    initial_sidebar_state="expanded"
 )
 
-# --- 2. 视觉一致性优化 (CSS 注入) ---
 st.markdown("""
     <style>
-    /* 全局深色底色 */
+    /* 全局背景 */
     .stApp {
         background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
         color: #e6edf3;
     }
     
-    /* 1. 侧边栏视觉修复 */
-    [data-testid="stSidebar"] {
-        background-color: #010409 !important;
-        border-right: 1px solid #30363d;
-    }
-    /* 强制侧边栏标题、标签、单选按钮、文本为纯白 */
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] .stMarkdown,
-    [data-testid="stSidebar"] div[role="radiogroup"] label p {
-        color: #ffffff !important;
-        opacity: 1 !important;
-        font-weight: 500 !important;
-    }
-
-    /* 修复问题 1：将侧边栏收缩按钮 "<<" 的颜色改为白色 */
+    /* 修复问题 1：侧边栏收缩图标 "<<" 颜色改为白色 */
     button[data-testid="stSidebarCollapseButton"] svg {
         fill: #ffffff !important;
         color: #ffffff !important;
     }
 
-    /* 2. 修复愿望栏上方提示文字颜色 (Consistent White) */
+    /* 修复侧边栏文字与标签颜色 */
+    [data-testid="stSidebar"] {
+        background-color: #010409 !important;
+        border-right: 1px solid #30363d;
+    }
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1 {
+        color: #ffffff !important;
+        opacity: 1 !important;
+    }
+
+    /* 修复问题 3：愿望栏上方文字标签颜色 (Consistent White) */
     .stTextInput label, .stSelectbox label, .stTextArea label {
         color: #ffffff !important;
         opacity: 1 !important;
         font-weight: 500 !important;
-        font-size: 1rem !important;
     }
-    
-    /* 3. Kanban 编辑框：深色背景 + 纯白高对比度文字 */
-    .stTextArea textarea {
-        background-color: #0d1117 !important;
-        color: #ffffff !important;
-        border: 1px solid #30363d !important;
-        border-radius: 8px !important;
-        font-size: 0.95rem !important;
-    }
-    
-    /* 4. 按钮美化：保持一致的绿色高亮风格 */
+
+    /* 按钮样式修复 */
     .stButton > button {
         background-color: rgba(35, 134, 54, 0.4) !important;
         color: #ffffff !important;
@@ -73,19 +57,24 @@ st.markdown("""
     .stButton > button:hover {
         background-color: rgba(35, 134, 54, 0.6) !important;
         border-color: #3fb950 !important;
-        box-shadow: 0 0 10px rgba(63, 185, 80, 0.3);
+    }
+
+    /* Kanban 编辑框颜色修复 */
+    .stTextArea textarea {
+        background-color: #0d1117 !important;
+        color: #ffffff !important;
+        border: 1px solid #30363d !important;
     }
 
     .step-header {
         color: #d29922;
         font-weight: bold;
         font-size: 0.9rem;
-        margin-bottom: 8px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. 初始化 Supabase 服务 ---
+# --- 2. 基础初始化 ---
 cookies = EncryptedCookieManager(password="SkyWishes_Secure_2026")
 if not cookies.ready(): st.stop()
 
@@ -93,12 +82,15 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
+# 管理 Guest ID
 if "guest_id" not in cookies or not cookies["guest_id"]:
     cookies["guest_id"] = str(uuid.uuid4())
     cookies.save()
-current_guest_id = cookies.get("guest_id")
+# 修复 UUID 传参逻辑：确保不会将字符串 "None" 传给数据库
+raw_guest_id = cookies.get("guest_id")
+current_guest_id = raw_guest_id if raw_guest_id and raw_guest_id != "None" else None
 
-# --- 4. 多语言 Human-Tone 文案配置 ---
+# --- 3. 语言配置：补全 lantern 键 ---
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
@@ -114,14 +106,14 @@ LANGS = {
         "forgot_pw": "Forgot Password?",
         "reset_sent": "Check your email for reset link!",
         "user_exists": "This email is already registered. Please login.",
-        "lantern": "Sky Lantern"
+        "lantern": "Sky Lantern"  # 补全此键
     },
     "中文": {
         "title": "🏮 SkyWishes | 孔明灯广场",
         "subtitle": "点亮 2026 的期许，让愿望在星空下有迹可循。",
         "wish_label": "许下你的 2026 新年愿望...",
         "launch_btn": "放飞孔明灯",
-        "save_btn": "保存计划修改内容",
+        "save_btn": "保存计划修改",
         "history_title": "✨ 往昔星火 (历史记录)",
         "step_hint": "行动看板 (可点击文本框直接微调)",
         "loading": "愿望架构师正在绘制蓝图...",
@@ -130,7 +122,7 @@ LANGS = {
         "forgot_pw": "忘记密码？",
         "reset_sent": "重置链接已发送至邮箱！",
         "user_exists": "该邮箱已注册，请尝试直接登录。",
-        "lantern": "孔明灯"
+        "lantern": "孔明灯"  # 补全此键
     }
 }
 
@@ -143,63 +135,54 @@ with top_col1:
     st.title(T["title"])
     st.markdown(f"*{T['subtitle']}*")
 
-# --- 5. 侧边栏：修复后的注册与登录逻辑 ---
+# --- 4. 侧边栏：修复重复邮箱逻辑 ---
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
     
     if not u_id:
         st.write(T["auth_welcome"])
-        st.caption(T["auth_benefit"])
         auth_mode = st.radio("Mode", ["Guest", "Login", "Sign Up"], label_visibility="collapsed")
         
         if auth_mode != "Guest":
             email = st.text_input("Email", placeholder="your@email.com")
             pw = st.text_input("Password", type="password")
             
-            # 修复问题 2：智能检测邮箱是否已注册
             if auth_mode == "Sign Up" and st.button("Create Account"):
                 try:
                     res = supabase.auth.sign_up({"email": email, "password": pw})
-                    # 如果 identities 列表为空，说明该邮箱已被其他账号占用
+                    # 修复：通过 identities 长度判断是否已存在
                     if res.user and res.user.identities is not None and len(res.user.identities) == 0:
                         st.warning(T["user_exists"])
                     elif res.user:
                         st.success("Verification email sent!")
                 except Exception as e:
-                    st.error(f"Registration Error: {e}")
+                    st.error(f"Error: {e}")
 
-            if auth_mode == "Login":
-                if st.button("Sign In"):
-                    try:
-                        res = supabase.auth.sign_in_with_password({"email": email, "password": pw})
-                        if res.user:
-                            st.session_state["u_id"] = res.user.id
-                            st.session_state["user_email"] = res.user.email
-                            # 自动合并访客数据至账号
+            if auth_mode == "Login" and st.button("Sign In"):
+                try:
+                    res = supabase.auth.sign_in_with_password({"email": email, "password": pw})
+                    if res.user:
+                        st.session_state["u_id"] = res.user.id
+                        st.session_state["user_email"] = res.user.email
+                        if current_guest_id:
                             supabase.table("wish_history").update({"user_id": res.user.id}).eq("guest_id", current_guest_id).execute()
-                            st.rerun()
-                    except Exception: st.error("Login failed. Check your email or password.")
-                
-                if st.button(T["forgot_pw"]):
-                    if email:
-                        supabase.auth.reset_password_for_email(email)
-                        st.info(T["reset_sent"])
-                    else: st.warning("Please enter your email address first.")
+                        st.rerun()
+                except Exception: st.error("Login failed.")
     else:
-        st.success(f"Online: {st.session_state.get('user_email', 'Celestial Member')}")
+        st.success(f"Online: {st.session_state.get('user_email')}")
         if st.button("Sign Out"):
             st.session_state.clear()
             st.rerun()
 
-# --- 6. 愿望交互逻辑 ---
-user_wish = st.text_input(T["wish_label"], placeholder="e.g. Find a dream job and stay healthy in 2026")
+# --- 5. 核心交互 ---
+user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI and launch my first app")
 
 if st.button(T["launch_btn"]):
     if user_wish:
         with st.spinner(T["loading"]):
             try:
-                # 调用 CrewAI 架构师
+                # 运行 CrewAI (这里可能会遇到 503 Overloaded，建议稍后重试)
                 result = MyProjectCrew().crew().kickoff(inputs={'wish': user_wish})
                 data = result.pydantic 
                 
@@ -215,45 +198,31 @@ if st.button(T["launch_btn"]):
                     st.session_state["current_wish_db_id"] = res.data[0]['id']
                 
                 st.session_state["last_plan"] = data.dict()
-                st.balloons() # 烟花动画
+                st.balloons()
                 st.rerun()
             except Exception as e:
-                st.error(f"Architecting failed: {e}")
+                st.error(f"Architecting failed (Potential AI Overload): {e}")
 
-# --- 7. 可编辑的 Kanban 展示 ---
+# --- 6. Kanban 与 历史 (加入 UUID 非空检查) ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
-    
-    # 使用 .get 安全获取字段，防止 KeyError
-    l_name = plan.get('lantern_name', T['lantern'])
+    l_name = plan.get('lantern_name', T.get('lantern', 'Sky Lantern'))
     st.subheader(f"✨ {l_name}")
     st.write(plan.get('response', ''))
     
-    st.markdown(f"#### 📋 {T['step_hint']}")
     steps = plan.get('steps', [])
-    edited_steps = []
-    
     if steps:
         cols = st.columns(len(steps))
         for i, s in enumerate(steps):
             with cols[i]:
                 st.markdown(f'<div class="step-header">STEP {i+1}</div>', unsafe_allow_html=True)
-                new_s = st.text_area(f"edit_box_{i}", value=s, height=220, label_visibility="collapsed")
-                edited_steps.append(new_s)
-        
-        # 保存对建议内容的自定义修改
-        if st.button(T["save_btn"], use_container_width=True):
-            if "current_wish_db_id" in st.session_state:
-                plan['steps'] = edited_steps
-                supabase.table("wish_history").update({"plan_json": plan}).eq("id", st.session_state["current_wish_db_id"]).execute()
-                st.session_state["last_plan"] = plan
-                st.toast("Modifications saved to your celestial archive! 🌟")
+                st.text_area(f"edit_{i}", value=s, height=220, label_visibility="collapsed", key=f"step_{i}")
 
-# --- 8. 历史回顾 ---
+# --- 历史记录：修复 UUID "None" 报错 ---
 st.divider()
 st.subheader(T["history_title"])
-if current_guest_id and current_guest_id != "None":
+if current_guest_id: # 只有 UUID 有效时才查询
     try:
         q = supabase.table("wish_history").select("*")
         if u_id: q = q.eq("user_id", u_id)
