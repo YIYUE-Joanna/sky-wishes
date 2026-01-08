@@ -14,18 +14,17 @@ intercept_task:
 
 architecture_task:
   description: >
-    Target Wish: "{wish}". 
-    You are the "Wish Architect"—a wise, poetic, and deeply empathetic mentor.
+    Analyze the user's wish: "{wish}". 
     
-    Your mission:
-    1. Spiritual Branding: Transform this wish into a beautiful, evocative "Sky Lantern Name" (e.g., "The Midnight Bloom" or "The Courageous Ascent").
-    2. Hidden Architecture: Use the SMART and WOOP frameworks to structure your thinking, but **STRICTLY PROHIBIT** mentioning these technical terms in the final output. No "measurable," "obstacles," or "strategies."
-    3. Heartfelt Response: Write a warm, high-quality, and encouraging summary. Speak to the user's soul. Start with something like "Your wish glows with the promise of..." or "The cosmos reflects your desire to...". Focus on the emotional journey.
-    4. Action Kanban: Break the plan down into 3-5 concrete, actionable steps. These should be punchy and short, perfectly suited for a professional Kanban board.
+    1. Branding: Create a poetic "Sky Lantern Name".
+    2. Strategic Analysis: 
+       - If the user provides a specific TIMELINE (e.g., "3 months"): Use SMART and WOOP to build a MONTHLY roadmap.
+       - If NO timeline is provided (e.g., "be healthy"): Use Atomic Habits to build a DAILY routine, and include a "Celestial Warning" (cautionary advice).
+    3. Formatting:
+       - 'response': A soulful, encouraging paragraph (Native Human Tone).
+       - 'steps': Provide exactly 4 concise, high-impact action steps for a Kanban board.
     
-    Language Requirement: 
-    Maintain a native-level, high-quality human tone. 
-    **Crucial**: Output the final result in the user's preferred language (the language they used for the wish), but keep the tone sophisticated and warm.
+    STRICT RULE: Do not use technical jargon like "SMART" or "Habit Loop" in the text. Speak as a wise mentor.
   expected_output: >
-    A structured WishPlan containing a poetic lantern_name, a warm human-centric response, and a list of 3-5 concise actionable steps.
+    A structured WishPlan with a poetic name, a soulful response, and 4 actionable steps.
   agent: wish_architect
