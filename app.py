@@ -1,5 +1,5 @@
 import os
-# 禁用遥测信号报错
+# 禁用遥测信号报错，防止 Streamlit 多线程环境冲突
 os.environ["OTEL_SDK_DISABLED"] = "true"
 
 import streamlit as st
@@ -8,25 +8,32 @@ from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
 
-# --- 1. 视觉主题与 CSS 注入 ---
-st.set_page_config(page_title="SkyWishes Portal", page_icon="🏮", layout="wide")
+# --- 1. 页面配置与侧边栏初始状态 ---
+# initial_sidebar_state="expanded" 确保侧边栏在应用加载时默认展开
+st.set_page_config(
+    page_title="SkyWishes Portal", 
+    page_icon="🏮", 
+    layout="wide",
+    initial_sidebar_state="expanded" 
+)
 
+# --- 2. 视觉主题与 CSS 注入 ---
 st.markdown("""
     <style>
-    /* 全局背景 */
+    /* 全局星空背景 */
     .stApp {
         background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
         color: #ffffff;
     }
     
-    /* 修复问题 2：输入框标签颜色 (白色) */
+    /* 修复标签颜色：确保在暗色背景下清晰可见 */
     label, .stMarkdown p {
         color: #f0f0f0 !important;
         font-weight: 500 !important;
         text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
     }
 
-    /* 修复问题 3：按钮视觉效果 (解决空白格问题) */
+    /* 按钮视觉优化 */
     .stButton > button {
         background-color: rgba(255, 255, 255, 0.15) !important;
         color: white !important;
@@ -43,7 +50,7 @@ st.markdown("""
         box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
     }
 
-    /* 修复问题 1：Kanban 编辑卡片样式 */
+    /* Kanban 编辑卡片样式 */
     div[data-testid="stVerticalBlock"] > div.stTextArea {
         background: rgba(255, 255, 255, 0.08);
         border-radius: 12px;
@@ -64,10 +71,16 @@ st.markdown("""
         margin-bottom: 5px;
         text-transform: uppercase;
     }
+
+    /* 侧边栏样式优化 */
+    [data-testid="stSidebar"] {
+        background-color: rgba(15, 12, 41, 0.85);
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 基础服务初始化 ---
+# --- 3. 基础服务初始化 ---
+# 初始化 Cookie 管理器以识别访客
 cookies = EncryptedCookieManager(password="SkyWishes_Secure_2026")
 if not cookies.ready(): 
     st.stop()
@@ -82,7 +95,8 @@ if "guest_id" not in cookies or not cookies["guest_id"]:
     cookies.save()
 current_guest_id = cookies.get("guest_id")
 
-# --- 3. 语言与文本配置 ---
+# --- 4. 语言与地道文案配置 (Human Tone) ---
+# 根据您的要求优化了注册引导语
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
@@ -93,8 +107,12 @@ LANGS = {
         "step_hint": "Action Roadmap (Editable)",
         "loading": "Architecting your path...",
         "lantern": "Sky Lantern",
-        "auth_header": "User Portal",
-        "login_success": "Welcome back!",
+        "auth_header": "✨ Account",
+        "auth_welcome": "🌟 Welcome to our celestial community!",
+        "auth_benefit": "By creating an account, all your past wishes will be safely preserved and synced across all your devices.",
+        "register_btn": "Create My Account",
+        "login_btn": "Sign In",
+        "confirm_email": "Please check your inbox to confirm your account!",
         "logout_btn": "Sign Out"
     },
     "中文": {
@@ -106,13 +124,18 @@ LANGS = {
         "step_hint": "行动看板 (点击文本可直接修改)",
         "loading": "愿望架构师正在规划路径...",
         "lantern": "孔明灯",
-        "auth_header": "账户中心",
-        "login_success": "欢迎回来！",
+        "auth_header": "✨ 账户中心",
+        "auth_welcome": "🌟 欢迎加入星空社区！",
+        "auth_benefit": "注册账号后，你之前所有的愿望都将被安全保存，并在你的所有设备间同步。",
+        "register_btn": "立即注册",
+        "login_btn": "登录账号",
+        "confirm_email": "请查收邮件以激活账号！",
         "logout_btn": "退出登录"
     }
 }
 
-# --- 4. 修复问题 4：右上角语言切换 ---
+# --- 5. 顶部布局 (右上角语言切换) ---
+# 将语言选择器移至顶部右侧以优化 UX
 top_col1, top_col2 = st.columns([8, 2])
 with top_col2:
     sel_lang = st.selectbox("Lang", ["English", "中文"], label_visibility="collapsed")
@@ -123,46 +146,48 @@ with top_col1:
     st.title(T["title"])
     st.markdown(f"*{T['subtitle']}*")
 
-# --- 5. 修复问题 2：侧边栏账户系统展示 ---
+# --- 6. 侧边栏：账户中心与身份验证 ---
 with st.sidebar:
     st.header(T["auth_header"])
     u_id = st.session_state.get("u_id")
     
     if not u_id:
-        auth_mode = st.radio("Mode", ["Guest / 访客", "Login / 登录", "Sign Up / 注册"])
+        st.markdown(f"### {T['auth_welcome']}")
+        st.caption(T['auth_benefit']) # 注册收益说明
         
-        if auth_mode != "Guest / 访客":
-            email = st.text_input("Email")
+        auth_mode = st.radio("Mode", ["Guest", "Login", "Sign Up"], label_visibility="collapsed")
+        
+        if auth_mode != "Guest":
+            email = st.text_input("Email", placeholder="your@email.com")
             password = st.text_input("Password", type="password")
             
-            if auth_mode == "Login / 登录" and st.button("Sign In"):
+            if auth_mode == "Login" and st.button(T["login_btn"]):
                 try:
                     res = supabase.auth.sign_in_with_password({"email": email, "password": password})
                     if res.user:
                         st.session_state["u_id"] = res.user.id
                         st.session_state["user_email"] = res.user.email
-                        # 同步访客数据到该账号
+                        # 同步访客历史记录到账号
                         supabase.table("wish_history").update({"user_id": res.user.id}).eq("guest_id", current_guest_id).execute()
-                        st.success(T["login_success"])
                         st.rerun()
                 except Exception as e:
                     st.error(f"Login failed: {e}")
             
-            if auth_mode == "Sign Up / 注册" and st.button("Register"):
+            if auth_mode == "Sign Up" and st.button(T["register_btn"]):
                 try:
-                    res = supabase.auth.sign_up({"email": email, "password": password})
-                    st.info("Check your email for confirmation link!")
+                    supabase.auth.sign_up({"email": email, "password": password})
+                    st.success(T["confirm_email"])
                 except Exception as e:
                     st.error(f"Registration failed: {e}")
         else:
             st.info("Browsing as Guest. Log in to sync across devices.")
     else:
-        st.write(f"Logged in as: **{st.session_state.get('user_email')}**")
+        st.success(f"Online: {st.session_state.get('user_email')}")
         if st.button(T["logout_btn"]):
             st.session_state.clear()
             st.rerun()
 
-# --- 6. 愿望交互逻辑 ---
+# --- 7. 愿望交互逻辑 ---
 st.write("") 
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Mastering AI development and staying healthy")
 
@@ -170,11 +195,11 @@ if st.button(T["launch_btn"]):
     if user_wish:
         with st.spinner(T["loading"]):
             try:
-                # 运行 CrewAI 代理
+                # 运行 CrewAI 代理架构师
                 result = MyProjectCrew().crew().kickoff(inputs={'wish': user_wish})
                 data = result.pydantic 
 
-                # 准备数据库条目
+                # 存入数据库
                 db_entry = {
                     "guest_id": current_guest_id,
                     "user_id": st.session_state.get("u_id"),
@@ -182,17 +207,17 @@ if st.button(T["launch_btn"]):
                     "plan_json": data.dict(),
                     "lang": sel_lang
                 }
-                # 写入 Supabase
                 supabase.table("wish_history").insert(db_entry).execute()
                 
-                # 触发动画
+                # 更新状态并触发庆典动画
                 st.session_state["last_plan"] = data.dict()
                 st.balloons()
                 st.rerun()
             except Exception as e:
                 st.error(f"Launch failed: {e}")
 
-# --- 7. 修复问题 1：可编辑的 Kanban 看板展示 ---
+# --- 8. 可编辑的 Kanban 看板展示 ---
+# 允许用户直接在 UI 上微调生成的步骤
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
@@ -207,23 +232,22 @@ if "last_plan" in st.session_state:
         for i, s in enumerate(steps):
             with cols[i]:
                 st.markdown(f'<div class="step-header">Step {i+1}</div>', unsafe_allow_html=True)
-                # 使用 text_area 允许用户直接更改内容
-                edited_step = st.text_area(
+                # 使用 text_area 实现步骤内容的即时编辑
+                st.text_area(
                     label=f"step_edit_{i}",
                     value=s,
-                    height=150,
+                    height=180,
                     key=f"kanban_step_{i}",
                     label_visibility="collapsed"
                 )
 
-# --- 8. 历史回顾 (仅显示用户自己的历史) ---
+# --- 9. 历史记忆区 (数据隔离查询) ---
 st.divider()
 st.subheader(T["history_title"])
 
-# 核心逻辑：根据登录状态决定查询条件
-if current_guest_id:
+# 处理访客 ID 可能为字符串 "None" 的异常，并根据登录状态过滤
+if current_guest_id and current_guest_id != "None":
     try:
-        # 如果已登录，优先根据 user_id 查询；未登录则根据 guest_id 查询
         query = supabase.table("wish_history").select("*")
         if st.session_state.get("u_id"):
             query = query.eq("user_id", st.session_state["u_id"])
@@ -240,7 +264,8 @@ if current_guest_id:
                 if h_steps:
                     h_cols = st.columns(len(h_steps))
                     for idx, hs in enumerate(h_steps):
-                        # 历史记录中的步骤使用 info 样式展示
                         h_cols[idx].info(f"**Step {idx+1}**\n\n{hs}")
     except Exception as e:
-        st.caption(f"Waiting for your first wish... (Debug: {e})")
+        st.caption(f"Waiting for your first wish... (Details: {e})")
+else:
+    st.info("Start by making your first wish to see your history!")
