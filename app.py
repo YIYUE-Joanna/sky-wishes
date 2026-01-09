@@ -10,7 +10,7 @@ from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
 
-# --- 1. 页面配置 ---
+# --- 1. 页面配置：确保侧边栏初始状态为展开 ---
 st.set_page_config(
     page_title="SkyWishes Portal", 
     page_icon="🏮", 
@@ -18,9 +18,9 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. 动态生成星空 HTML 逻辑 ---
+# --- 2. 动态生成星空 HTML 逻辑 (仅保留繁星) ---
 def get_star_field_html():
-    # 生成 100 颗随机闪烁繁星
+    # 生成 100 颗随机闪烁繁星，营造深邃感
     stars = ""
     for _ in range(100):
         top = random.randint(0, 100)
@@ -29,30 +29,12 @@ def get_star_field_html():
         delay = random.uniform(0, 5)
         stars += f'<div class="star" style="top:{top}%; left:{left}%; width:{size}px; height:{size}px; animation-delay: {delay}s;"></div>'
     
-    # 限制流星数量为 3 颗，降低频率
-    shooting_stars = ""
-    colors = ["#ffffff", "#FFD700", "#00CED1", "#FF69B4", "#ADFF2F"]
-    for i in range(3):
-        top_start = random.randint(5, 30) 
-        delay = i * 12 + random.uniform(0, 10)
-        color = random.choice(colors)
-        duration = random.uniform(8, 12) 
-        shooting_stars += f'''
-            <div class="shooting-star" style="
-                top: {top_start}%; 
-                background: linear-gradient(-45deg, {color}, transparent); 
-                animation-delay: {delay}s; 
-                animation-duration: {duration}s; 
-                filter: drop-shadow(0 0 8px {color});">
-            </div>'''
-    
-    return f'<div class="star-layer">{stars}{shooting_stars}</div>'
+    return f'<div class="star-layer">{stars}</div>'
 
 # --- 3. 注入视觉样式 (CSS) ---
-# 使用 f-string 时，CSS 中的 {} 必须双写成 {{}} 以防冲突
 st.markdown(f"""
     <style>
-    /* 极光背景 */
+    /* 1. 动态极光背景 */
     .stApp {{
         background: linear-gradient(135deg, #0d1117, #161b22, #0d1117, #1a1a2e);
         background-size: 400% 400%;
@@ -66,7 +48,7 @@ st.markdown(f"""
         100% {{ background-position: 0% 50%; }}
     }}
 
-    /* 侧边栏文字强制白色 */
+    /* 2. 侧边栏样式强化 - 纯白文字 */
     [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
@@ -77,10 +59,13 @@ st.markdown(f"""
     [data-testid="stSidebar"] div[role="radiogroup"] label p {{
         color: #ffffff !important;
         opacity: 1 !important;
+        font-weight: 500 !important;
     }}
-    button[data-testid="stSidebarCollapseButton"] svg {{ fill: #ffffff !important; }}
+    button[data-testid="stSidebarCollapseButton"] svg {{
+        fill: #ffffff !important;
+    }}
 
-    /* 金色呼吸按钮 */
+    /* 3. 呼吸感金黄色按钮 */
     .stButton > button {{
         background-color: rgba(35, 134, 54, 0.4) !important;
         color: #ffffff !important;
@@ -94,7 +79,7 @@ st.markdown(f"""
         100% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
     }}
 
-    /* 星空与流星核心逻辑 */
+    /* 4. 星空层逻辑 */
     .star-layer {{
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
@@ -112,24 +97,7 @@ st.markdown(f"""
         50% {{ opacity: 1; transform: scale(1.3); }}
     }}
 
-    .shooting-star {{
-        position: absolute;
-        right: -200px;
-        width: 150px; 
-        height: 2px;
-        opacity: 0;
-        z-index: 1;
-        animation: slow-sweep infinite linear;
-    }}
-    @keyframes slow-sweep {{
-        0% {{ transform: translate(0, 0) rotate(20deg); opacity: 0; }}
-        2% {{ opacity: 1; }}
-        28% {{ transform: translate(-120vw, 15vh) rotate(20deg); opacity: 1; }}
-        30% {{ transform: translate(-120vw, 15vh) rotate(20deg); opacity: 0; }}
-        100% {{ transform: translate(-120vw, 15vh) rotate(20deg); opacity: 0; }}
-    }}
-
-    /* 放飞加载动画 */
+    /* 5. 放飞仪式加载动画 */
     .ritual-container {{
         position: fixed;
         bottom: 0; left: 50%;
@@ -162,7 +130,10 @@ st.markdown(f"""
         100% {{ transform: scale(35); opacity: 0; box-shadow: 0 0 20px 5px orange, 15px -15px 20px red, -15px 15px 20px yellow; }}
     }}
 
-    .stTextInput label, .stTextArea label, .stSelectbox label {{ color: #ffffff !important; }}
+    /* 文本框标签全白 */
+    .stTextInput label, .stTextArea label, .stSelectbox label {{
+        color: #ffffff !important;
+    }}
     </style>
     {get_star_field_html()}
     """, unsafe_allow_html=True)
@@ -182,7 +153,7 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
 raw_guest_id = cookies.get("guest_id")
 current_guest_id = raw_guest_id if (raw_guest_id and raw_guest_id != "None") else None
 
-# --- 5. 语言配置 ---
+# --- 5. 语言文案配置 ---
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
@@ -287,11 +258,12 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 7. 核心交互 ---
+# --- 7. 核心愿望交互 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
+        # 立即展示放飞仪式
         ritual_placeholder = st.empty()
         ritual_placeholder.markdown("""
             <div class="ritual-container">
@@ -325,7 +297,7 @@ if st.button(T["launch_btn"], use_container_width=True):
                 ritual_placeholder.empty()
                 st.error(f"Launch failed: {e}")
 
-# --- 8. Kanban 展示与保存 (Line 364 语法错误修复点) ---
+# --- 8. Kanban 展示与保存 (保持修复后的语法) ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
@@ -345,11 +317,10 @@ if "last_plan" in st.session_state:
                 new_s = st.text_area(f"edit_{i}", value=s, height=220, label_visibility="collapsed", key=f"kanban_step_{i}")
                 edited_steps.append(new_s)
         
-        # 修复了此处的语法括号闭合问题
         if st.button(T["save_btn"], use_container_width=True):
             if "current_wish_db_id" in st.session_state:
                 plan['steps'] = edited_steps
-                # 关键修复行：确保所有字典、方法调用完整闭合
+                # 保持括号闭合逻辑
                 supabase.table("wish_history").update({"plan_json": plan}).eq("id", st.session_state["current_wish_db_id"]).execute()
                 st.session_state["last_plan"] = plan
                 st.toast("Modifications saved! 🌟")
