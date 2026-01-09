@@ -38,24 +38,19 @@ st.markdown(f"""
         color: #e6edf3;
         overflow-x: hidden;
     }}
-    @keyframes aurora-bg {{
-        0% {{ background-position: 0% 50%; }}
-        50% {{ background-position: 100% 50%; }}
-        100% {{ background-position: 0% 50%; }}
-    }}
-    /* 强制侧边栏的标签和普通段落文字为白色 */
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] .stMarkdown p {{
+    /* 强制愿望输入框标签为白色 */
+    .stTextInput label {{
         color: #ffffff !important;
         font-weight: 500 !important;
     }}
-    /* 核心修复：确保输入框内的文字（包括邮箱、密码、占位符）为深色，使其在白色输入框中可见 */
+    /* 强制侧边栏文字为白色 */
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p {{
+        color: #ffffff !important;
+    }}
+    /* 核心修复：确保输入框内的文字（邮箱、密码）在白色背景下可见 */
     [data-testid="stSidebar"] input {{
         color: #31333F !important;
         -webkit-text-fill-color: #31333F !important;
-    }}
-    /* 主页面愿望输入框标签也设为白色 */
-    .stTextInput label {{
-        color: #ffffff !important;
     }}
     [data-testid="stSidebar"] {{
         background-color: #010409 !important;
@@ -91,7 +86,7 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
 
 current_guest_id = cookies.get("guest_id")
 
-# --- 5. 语言文案配置 ---
+# --- 5. 文案配置 ---
 LANGS = {
     "English": {
         "title": "SkyWishes Portal",
@@ -102,7 +97,6 @@ LANGS = {
         "forgot_pw": "Forgot Password?",
         "reset_sent": "Check your email for the link!",
         "reset_error": "Please enter your email first.",
-        "history_title": "✨ Celestial Memories",
         "quota_error": "🌟 You've reached today's wish limit. ✨",
         "loading": "Celestial winds are carrying your wish upwards..."
     },
@@ -115,15 +109,15 @@ LANGS = {
         "forgot_pw": "忘记密码？",
         "reset_sent": "重置链接已发送至邮箱！",
         "reset_error": "请先输入邮箱地址。",
-        "history_title": "✨ 往昔星火 (历史记录)",
         "quota_error": "🌟 今天的愿望额度已达上限。✨",
         "loading": "星空之风正带着你的愿望冉冉升起..."
     }
 }
 
-# --- 6. 顶部布局 ---
+# --- 6. 顶部布局：右上角语言切换 ---
 col_title, col_lang = st.columns([7, 1.5])
 with col_lang:
+    # 语言选择放在右上角
     sel_lang = st.selectbox("Language", ["English", "中文"], label_visibility="collapsed")
 
 T = LANGS[sel_lang]
@@ -132,7 +126,7 @@ with col_title:
     st.markdown(f"# 🏮 {T['title']}")
     st.markdown(f"*{T['subtitle']}*")
 
-# --- 7. 侧边栏 ---
+# --- 7. 侧边栏：账户管理 ---
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
@@ -164,8 +158,10 @@ with st.sidebar:
         if st.button("Sign Out"): st.session_state.clear(); st.rerun()
 
 # --- 8. 核心交互 ---
+# 更新占位符例子
 user_wish = st.text_input(T["wish_label"], placeholder=T["placeholder"])
 
+# 整合所有可用模型
 MODELS_TO_TRY = [
     "gemini-2.5-flash-lite", 
     "gemini-3-flash", 
@@ -182,6 +178,7 @@ if st.button(T["launch_btn"], use_container_width=True):
             success = False
             for model_name in MODELS_TO_TRY:
                 try:
+                    # 循环导入修复后，此处将正常运行
                     result = MyProjectCrew(model_name=model_name).crew().kickoff(inputs={'wish': user_wish})
                     st.session_state["last_plan"] = result.pydantic.dict()
                     st.balloons()
