@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. 视觉一致性优化 (Aurora, Breathing Button, Stars) ---
+# --- 2. 视觉一致性优化 (侧边栏修复, 流星修复, 极光背景) ---
 st.markdown("""
     <style>
     /* 1. 动态极光背景 */
@@ -34,37 +34,49 @@ st.markdown("""
         100% { background-position: 0% 50%; }
     }
 
-    /* 2. 呼吸感金黄色按钮 */
+    /* 2. 侧边栏文字修复 - 强制白色 */
+    [data-testid="stSidebar"] {
+        background-color: #010409 !important;
+        border-right: 1px solid #30363d;
+    }
+    /* 强制所有层级的文字、标签、说明文字为白色 */
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, 
+    [data-testid="stSidebar"] .stCaption, [data-testid="stSidebar"] .stMarkdown p,
+    [data-testid="stSidebar"] div[role="radiogroup"] label p {
+        color: #ffffff !important;
+        opacity: 1 !important;
+        font-weight: 500 !important;
+    }
+    button[data-testid="stSidebarCollapseButton"] svg {
+        fill: #ffffff !important;
+    }
+
+    /* 3. 呼吸感金黄色按钮 */
     .stButton > button {
         background-color: rgba(35, 134, 54, 0.4) !important;
         color: #ffffff !important;
         border: 2px solid rgba(210, 153, 34, 0.6) !important;
         border-radius: 8px;
-        transition: all 0.3s ease;
         animation: breathing-gold 2.5s infinite ease-in-out;
     }
     @keyframes breathing-gold {
-        0% { box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); border-color: rgba(210, 153, 34, 0.4); }
+        0% { box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }
         50% { box-shadow: 0 0 20px rgba(210, 153, 34, 0.7); border-color: rgba(212, 175, 55, 1); }
-        100% { box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); border-color: rgba(210, 153, 34, 0.4); }
-    }
-    .stButton > button:hover {
-        background-color: rgba(35, 134, 54, 0.6) !important;
-        transform: scale(1.02);
+        100% { box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }
     }
 
-    /* 3. 闪烁繁星层 */
+    /* 4. 星空与流星层 (Shooting Star Fix) */
     .star-layer {
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
-        z-index: -1;
+        z-index: 0;
         pointer-events: none;
     }
     .star {
         position: absolute;
         background: white;
         border-radius: 50%;
-        opacity: 0.5;
         animation: twinkle 2s infinite ease-in-out;
     }
     @keyframes twinkle {
@@ -72,23 +84,23 @@ st.markdown("""
         50% { opacity: 1; transform: scale(1.2); }
     }
 
-    /* 4. 彩色流星 */
     .shooting-star {
         position: absolute;
-        height: 2px;
+        top: 0; left: 100%;
+        width: 120px; height: 2px;
         background: linear-gradient(-45deg, #ffffff, rgba(0, 0, 255, 0));
-        filter: drop-shadow(0 0 6px rgba(255, 255, 255, 1));
-        animation: shooting 4s infinite ease-in-out;
+        filter: drop-shadow(0 0 6px #fff);
+        animation: shooting-fix 5s infinite linear;
         opacity: 0;
     }
-    @keyframes shooting {
-        0% { transform: translateX(0) translateY(0) rotate(45deg); opacity: 0; width: 0; }
-        10% { opacity: 1; width: 100px; }
-        30% { transform: translateX(-600px) translateY(600px) rotate(45deg); opacity: 0; width: 0; }
+    @keyframes shooting-fix {
+        0% { transform: translateX(0) translateY(0) rotate(45deg); opacity: 0; }
+        10% { opacity: 1; }
+        20% { transform: translateX(-1200px) translateY(1200px) rotate(45deg); opacity: 0; }
         100% { opacity: 0; }
     }
 
-    /* 5. 放飞灯笼与烟花 (持续动画) */
+    /* 5. 放飞仪式动画 */
     .ritual-container {
         position: fixed;
         bottom: 0; left: 50%;
@@ -99,19 +111,18 @@ st.markdown("""
     }
     .loading-lantern {
         position: absolute;
-        left: 50%; bottom: -50px;
+        left: 50%; bottom: -100px;
         width: 45px; height: 60px;
         background: #ff4d4d;
         border: 3px solid #330000;
         box-shadow: 0 0 25px #ff9933;
-        animation: rise-and-wobble 8s linear infinite;
+        animation: rise-ritual 8s linear infinite;
     }
-    @keyframes rise-and-wobble {
-        0% { bottom: 0%; transform: translateX(-50%) rotate(0deg); opacity: 1; }
-        50% { transform: translateX(-40%) rotate(5deg); }
-        100% { bottom: 110%; transform: translateX(-50%) rotate(-5deg); opacity: 0; }
+    @keyframes rise-ritual {
+        0% { bottom: -10%; opacity: 1; }
+        100% { bottom: 110%; opacity: 0; }
     }
-    
+
     .firework-burst {
         position: absolute;
         width: 4px; height: 4px;
@@ -120,26 +131,25 @@ st.markdown("""
     }
     @keyframes explode {
         0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 white; }
-        100% { transform: scale(30); opacity: 0; box-shadow: 0 0 20px 5px orange, 20px -20px 20px red, -20px 20px 20px yellow; }
+        100% { transform: scale(35); opacity: 0; box-shadow: 0 0 20px 5px orange, 15px -15px 20px red, -15px 15px 20px yellow; }
     }
 
-    /* 侧边栏与文字修复 */
-    [data-testid="stSidebar"] { background-color: #010409 !important; border-right: 1px solid #30363d; }
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] label { color: #ffffff !important; }
-    .stTextInput label, .stTextArea label { color: #ffffff !important; }
+    /* 修复愿望输入框标签颜色 */
+    .stTextInput label, .stTextArea label, .stSelectbox label {
+        color: #ffffff !important;
+    }
     </style>
 
     <div class="star-layer">
-        <div class="star" style="top:10%; left:20%; width:2px; height:2px; animation-delay: 0.5s;"></div>
-        <div class="star" style="top:40%; left:80%; width:3px; height:3px; animation-delay: 1.2s;"></div>
-        <div class="star" style="top:70%; left:15%; width:2px; height:2px; animation-delay: 0.8s;"></div>
-        <div class="shooting-star" style="top:5%; right:10%; background:linear-gradient(-45deg, #FFD700, transparent); animation-delay: 1s;"></div>
-        <div class="shooting-star" style="top:20%; right:40%; background:linear-gradient(-45deg, #00CED1, transparent); animation-delay: 5s;"></div>
-        <div class="shooting-star" style="top:15%; right:70%; background:linear-gradient(-45deg, #FF69B4, transparent); animation-delay: 3s;"></div>
+        <div class="star" style="top:15%; left:25%; width:2px; height:2px; animation-delay: 0.1s;"></div>
+        <div class="star" style="top:35%; left:75%; width:3px; height:3px; animation-delay: 0.5s;"></div>
+        <div class="star" style="top:65%; left:10%; width:2px; height:2px; animation-delay: 0.9s;"></div>
+        <div class="shooting-star" style="top:10%; animation-delay: 1s;"></div>
+        <div class="shooting-star" style="top:30%; animation-delay: 6s;"></div>
     </div>
     """, unsafe_allow_html=True)
 
-# --- 3. 初始化服务 ---
+# --- 3. 初始化服务与 UUID ---
 cookies = EncryptedCookieManager(password="SkyWishes_Secure_2026")
 if not cookies.ready(): st.stop()
 
@@ -154,7 +164,7 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
 raw_guest_id = cookies.get("guest_id")
 current_guest_id = raw_guest_id if (raw_guest_id and raw_guest_id != "None") else None
 
-# --- 4. 语言文案 ---
+# --- 4. 语言配置 (Native Human Tone) ---
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
@@ -203,7 +213,7 @@ with top_col1:
     st.title(T["title"])
     st.markdown(f"*{T['subtitle']}*")
 
-# --- 5. 侧边栏：账户管理 ---
+# --- 5. 侧边栏：账户管理 (修复白色文字) ---
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
@@ -259,25 +269,23 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 6. 核心交互 (放飞仪式) ---
+# --- 6. 核心愿望交互 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
-        # 触发动画占位符
+        # 立即展示放飞仪式
         ritual_placeholder = st.empty()
         ritual_placeholder.markdown("""
             <div class="ritual-container">
                 <div class="loading-lantern"></div>
-                <div class="firework-burst" style="top:20%; left:45%; animation-delay: 2s;"></div>
-                <div class="firework-burst" style="top:40%; left:55%; animation-delay: 4s;"></div>
-                <div class="firework-burst" style="top:10%; left:50%; animation-delay: 6s;"></div>
+                <div class="firework-burst" style="top:15%; left:48%; animation-delay: 1s;"></div>
+                <div class="firework-burst" style="top:35%; left:52%; animation-delay: 3s;"></div>
             </div>
         """, unsafe_allow_html=True)
 
         with st.spinner(T["loading"]):
             try:
-                # 调用 CrewAI 代理
                 result = MyProjectCrew().crew().kickoff(inputs={'wish': user_wish, 'language': sel_lang})
                 data = result.pydantic 
                 
@@ -300,7 +308,7 @@ if st.button(T["launch_btn"], use_container_width=True):
                 ritual_placeholder.empty()
                 st.error(f"Launch failed: {e}")
 
-# --- 7. Kanban 编辑区 ---
+# --- 7. Kanban 展示 ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
@@ -316,7 +324,7 @@ if "last_plan" in st.session_state:
         cols = st.columns(len(steps))
         for i, s in enumerate(steps):
             with cols[i]:
-                st.markdown(f'<div class="step-header">STEP {i+1}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="step-header" style="color:#d29922; font-weight:bold;">STEP {i+1}</div>', unsafe_allow_html=True)
                 new_s = st.text_area(f"edit_{i}", value=s, height=220, label_visibility="collapsed", key=f"kanban_step_{i}")
                 edited_steps.append(new_s)
         
@@ -325,7 +333,7 @@ if "last_plan" in st.session_state:
                 plan['steps'] = edited_steps
                 supabase.table("wish_history").update({"plan_json": plan}).eq("id", st.session_state["current_wish_db_id"]).execute()
                 st.session_state["last_plan"] = plan
-                st.toast("Modifications saved to your celestial archive! 🌟")
+                st.toast("Modifications saved! 🌟")
 
 # --- 8. 历史回顾 ---
 st.divider()
