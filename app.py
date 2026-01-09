@@ -17,18 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. 动态生成星空 ---
-def get_star_field_html():
-    stars = ""
-    for _ in range(100):
-        top = random.randint(0, 100)
-        left = random.randint(0, 100)
-        size = random.uniform(1, 3)
-        delay = random.uniform(0, 5)
-        stars += f'<div class="star" style="top:{top}%; left:{left}%; width:{size}px; height:{size}px; animation-delay: {delay}s;"></div>'
-    return f'<div class="star-layer">{stars}</div>'
-
-# --- 3. 注入视觉样式 (CSS) ---
+# --- 2. 注入视觉样式 (CSS) ---
 st.markdown(f"""
     <style>
     .stApp {{
@@ -36,19 +25,13 @@ st.markdown(f"""
         background-size: 400% 400%;
         animation: aurora-bg 15s ease infinite;
         color: #e6edf3;
-        overflow-x: hidden;
     }}
-    /* 强制愿望输入框标签为白色 */
-    .stTextInput label {{
-        color: #ffffff !important;
-        font-weight: 500 !important;
-    }}
-    /* 强制侧边栏标签和文字为白色 */
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p {{
+    /* 强制标签为白色 */
+    .stTextInput label, .stTextArea label, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p {{
         color: #ffffff !important;
     }}
-    /* 核心修复：确保输入框内的文字（邮箱、密码）在白色背景下可见 */
-    [data-testid="stSidebar"] input {{
+    /* 核心修复：确保输入框文字为深色可见 */
+    input {{
         color: #31333F !important;
         -webkit-text-fill-color: #31333F !important;
     }}
@@ -62,17 +45,10 @@ st.markdown(f"""
         border: 2px solid rgba(210, 153, 34, 0.6) !important;
         border-radius: 8px;
     }}
-    .star-layer {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }}
-    .star {{ position: absolute; background: white; border-radius: 50%; animation: twinkle 3s infinite ease-in-out; }}
-    @keyframes twinkle {{ 0%, 100% {{ opacity: 0.3; transform: scale(1); }} 50% {{ opacity: 1; transform: scale(1.3); }} }}
-    .ritual-container {{ position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; height: 100%; z-index: 9999; pointer-events: none; }}
-    .loading-lantern {{ position: absolute; left: 50%; bottom: -100px; width: 45px; height: 60px; background: #ff4d4d; border: 3px solid #330000; box-shadow: 0 0 25px #ff9933; animation: rise-ritual 8s linear infinite; }}
-    @keyframes rise-ritual {{ 0% {{ bottom: -10%; opacity: 1; }} 100% {{ bottom: 110%; opacity: 0; }} }}
     </style>
-    {get_star_field_html()}
     """, unsafe_allow_html=True)
 
-# --- 4. 初始化服务 ---
+# --- 3. 初始化服务 ---
 cookies = EncryptedCookieManager(password="SkyWishes_Secure_2026")
 if not cookies.ready(): st.stop()
 
@@ -86,7 +62,7 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
 
 current_guest_id = cookies.get("guest_id")
 
-# --- 5. 文案配置 ---
+# --- 4. 语言文案 ---
 LANGS = {
     "English": {
         "title": "SkyWishes Portal",
@@ -97,8 +73,7 @@ LANGS = {
         "forgot_pw": "Forgot Password?",
         "reset_sent": "Check your email for the link!",
         "reset_error": "Please enter your email first.",
-        "quota_error": "🌟 You've reached today's wish limit. ✨",
-        "loading": "Celestial winds are carrying your wish upwards..."
+        "quota_error": "🌟 Today's limit reached. ✨"
     },
     "中文": {
         "title": "SkyWishes | 孔明灯广场",
@@ -109,23 +84,19 @@ LANGS = {
         "forgot_pw": "忘记密码？",
         "reset_sent": "重置链接已发送至邮箱！",
         "reset_error": "请先输入邮箱地址。",
-        "quota_error": "🌟 今天的愿望额度已达上限。✨",
-        "loading": "星空之风正带着你的愿望冉冉升起..."
+        "quota_error": "🌟 今天的愿望额度已达上限。✨"
     }
 }
 
-# --- 6. 顶部布局：右上角语言切换 ---
 col_title, col_lang = st.columns([7, 1.5])
 with col_lang:
-    sel_lang = st.selectbox("Language", ["English", "中文"], label_visibility="collapsed")
-
+    sel_lang = st.selectbox("Lang", ["English", "中文"], label_visibility="collapsed")
 T = LANGS[sel_lang]
 
 with col_title:
     st.markdown(f"# 🏮 {T['title']}")
-    st.markdown(f"*{T['subtitle']}*")
 
-# --- 7. 侧边栏：账户管理与登录错误透出 ---
+# --- 5. 侧边栏与登录修复 ---
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
@@ -134,17 +105,25 @@ with st.sidebar:
         if auth_mode != "Guest":
             email = st.text_input("Email")
             pw = st.text_input("Password", type="password")
+            
             if auth_mode == "Login":
                 if st.button("Sign In"):
+                    login_success = False
                     try:
                         res = supabase.auth.sign_in_with_password({"email": email, "password": pw})
                         if res.user:
                             st.session_state["u_id"] = res.user.id
-                            st.rerun()
-                    # 修复：透出真实错误信息，方便排查
-                    except Exception as e: 
-                        st.error(f"Login failed: {str(e)}")
-                
+                            st.session_state["user_email"] = res.user.email
+                            if current_guest_id:
+                                supabase.table("wish_history").update({"user_id": res.user.id}).eq("guest_id", current_guest_id).execute()
+                            login_success = True
+                    except Exception as e:
+                        st.error(f"Login failed: {e}")
+                    
+                    # 关键修复：将 st.rerun() 移出 try 块，防止信号被拦截
+                    if login_success:
+                        st.rerun()
+
                 if st.button(T["forgot_pw"]):
                     if email:
                         try:
@@ -152,29 +131,20 @@ with st.sidebar:
                             st.success(T["reset_sent"])
                         except Exception as e: st.error(f"Error: {e}")
                     else: st.warning(T["reset_error"])
-            else:
-                if st.button("Create Account"):
-                    try: supabase.auth.sign_up({"email": email, "password": pw}); st.success("Check email!")
-                    except Exception as e: st.error(f"Error: {e}")
     else:
+        st.success(f"Online: {st.session_state.get('user_email')}")
         if st.button("Sign Out"): st.session_state.clear(); st.rerun()
 
-# --- 8. 核心交互 ---
+# --- 6. 核心交互 ---
 user_wish = st.text_input(T["wish_label"], placeholder=T["placeholder"])
 
 MODELS_TO_TRY = [
-    "gemini-2.5-flash-lite", 
-    "gemini-3-flash", 
-    "gemini-2.5-flash", 
-    "gemma-3-27b", "gemma-3-12b", "gemma-3-4b", "gemma-3-2b", "gemma-3-1b",
-    "gemini-2.0-flash", "gemini-2.5-pro"
+    "gemini-2.5-flash-lite", "gemini-3-flash", "gemini-2.5-flash", "gemma-3-27b", "gemini-2.5-pro"
 ]
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
-        ritual = st.empty()
-        ritual.markdown('<div class="ritual-container"><div class="loading-lantern"></div></div>', unsafe_allow_html=True)
-        with st.spinner(T["loading"]):
+        with st.spinner("Processing..."):
             success = False
             for model_name in MODELS_TO_TRY:
                 try:
@@ -183,19 +153,11 @@ if st.button(T["launch_btn"], use_container_width=True):
                     st.balloons()
                     success = True
                     break
-                except Exception as e:
-                    print(f"DEBUG: {model_name} failed: {e}")
-                    continue
-            if not success: 
-                ritual.empty()
-                st.error(T["quota_error"])
+                except Exception: continue
+            if not success: st.error(T["quota_error"])
             else: st.rerun()
 
-# --- 9. 显示结果 ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
-    st.divider()
-    st.subheader(f"✨ {plan.get('lantern_name', 'Wish Plan')}")
-    st.write(plan.get('response', ''))
-    for i, step in enumerate(plan.get('steps', [])):
-        st.info(f"**Step {i+1}**: {step}")
+    st.subheader(f"✨ {plan.get('lantern_name')}")
+    st.write(plan.get('response'))
