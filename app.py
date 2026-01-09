@@ -5,6 +5,7 @@ os.environ["OTEL_SDK_DISABLED"] = "true"
 import streamlit as st
 import uuid
 import time
+import random
 from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
@@ -17,99 +18,119 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. 视觉一致性优化 (侧边栏修复, 流星修复, 极光背景) ---
-st.markdown("""
+# --- 2. 动态生成星空元素 (随机逻辑) ---
+def generate_stars(count=100):
+    stars = ""
+    for _ in range(count):
+        top = random.randint(0, 100)
+        left = random.randint(0, 100)
+        size = random.uniform(1, 3)
+        delay = random.uniform(0, 5)
+        stars += f'<div class="star" style="top:{top}%; left:{left}%; width:{size}px; height:{size}px; animation-delay: {delay}s;"></div>'
+    return stars
+
+def generate_shooting_stars(count=6):
+    s_stars = ""
+    colors = ["#ffffff", "#FFD700", "#00CED1", "#FF69B4", "#ADFF2F", "#F08080", "#E6E6FA"]
+    for i in range(count):
+        top = random.randint(5, 40)  # 限制在上方，更像天空
+        delay = i * 3 + random.uniform(0, 5)
+        color = random.choice(colors)
+        duration = random.uniform(4, 7)
+        s_stars += f'<div class="shooting-star" style="top:{top}%; background:linear-gradient(-45deg, {color}, transparent); animation-delay: {delay}s; animation-duration: {duration}s; filter: drop-shadow(0 0 6px {color});"></div>'
+    return s_stars
+
+# --- 3. 视觉一致性优化 (Aurora, Sidebar, Twinkle Stars) ---
+st.markdown(f"""
     <style>
     /* 1. 动态极光背景 */
-    .stApp {
+    .stApp {{
         background: linear-gradient(135deg, #0d1117, #161b22, #0d1117, #1a1a2e);
         background-size: 400% 400%;
         animation: aurora-bg 15s ease infinite;
         color: #e6edf3;
         overflow-x: hidden;
-    }
-    @keyframes aurora-bg {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
+    }}
+    @keyframes aurora-bg {{
+        0% {{ background-position: 0% 50%; }}
+        50% {{ background-position: 100% 50%; }}
+        100% {{ background-position: 0% 50%; }}
+    }}
 
-    /* 2. 侧边栏文字修复 - 强制白色 */
-    [data-testid="stSidebar"] {
+    /* 2. 侧边栏文字强化 - 纯白 */
+    [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
-    }
-    /* 强制所有层级的文字、标签、说明文字为白色 */
+    }}
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, 
     [data-testid="stSidebar"] .stCaption, [data-testid="stSidebar"] .stMarkdown p,
-    [data-testid="stSidebar"] div[role="radiogroup"] label p {
+    [data-testid="stSidebar"] div[role="radiogroup"] label p {{
         color: #ffffff !important;
         opacity: 1 !important;
         font-weight: 500 !important;
-    }
-    button[data-testid="stSidebarCollapseButton"] svg {
+    }}
+    button[data-testid="stSidebarCollapseButton"] svg {{
         fill: #ffffff !important;
-    }
+    }}
 
     /* 3. 呼吸感金黄色按钮 */
-    .stButton > button {
+    .stButton > button {{
         background-color: rgba(35, 134, 54, 0.4) !important;
         color: #ffffff !important;
         border: 2px solid rgba(210, 153, 34, 0.6) !important;
         border-radius: 8px;
         animation: breathing-gold 2.5s infinite ease-in-out;
-    }
-    @keyframes breathing-gold {
-        0% { box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }
-        50% { box-shadow: 0 0 20px rgba(210, 153, 34, 0.7); border-color: rgba(212, 175, 55, 1); }
-        100% { box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }
-    }
+    }}
+    @keyframes breathing-gold {{
+        0% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
+        50% {{ box-shadow: 0 0 20px rgba(210, 153, 34, 0.7); border-color: rgba(212, 175, 55, 1); }}
+        100% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
+    }}
 
-    /* 4. 星空与流星层 (Shooting Star Fix) */
-    .star-layer {
+    /* 4. 星空层定义 */
+    .star-layer {{
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
         z-index: 0;
         pointer-events: none;
-    }
-    .star {
+    }}
+    .star {{
         position: absolute;
         background: white;
         border-radius: 50%;
-        animation: twinkle 2s infinite ease-in-out;
-    }
-    @keyframes twinkle {
-        0%, 100% { opacity: 0.3; transform: scale(1); }
-        50% { opacity: 1; transform: scale(1.2); }
-    }
+        animation: twinkle 3s infinite ease-in-out;
+        opacity: 0.6;
+    }}
+    @keyframes twinkle {{
+        0%, 100% {{ opacity: 0.3; transform: scale(1); }}
+        50% {{ opacity: 1; transform: scale(1.3); }}
+    }}
 
-    .shooting-star {
+    .shooting-star {{
         position: absolute;
-        top: 0; left: 100%;
-        width: 120px; height: 2px;
-        background: linear-gradient(-45deg, #ffffff, rgba(0, 0, 255, 0));
-        filter: drop-shadow(0 0 6px #fff);
-        animation: shooting-fix 5s infinite linear;
+        top: 0; left: 110%;
+        width: 150px; height: 2px;
         opacity: 0;
-    }
-    @keyframes shooting-fix {
-        0% { transform: translateX(0) translateY(0) rotate(45deg); opacity: 0; }
-        10% { opacity: 1; }
-        20% { transform: translateX(-1200px) translateY(1200px) rotate(45deg); opacity: 0; }
-        100% { opacity: 0; }
-    }
+        animation: shooting-animation infinite linear;
+    }}
+    @keyframes shooting-animation {{
+        0% {{ transform: translateX(0) translateY(0) rotate(45deg); opacity: 0; }}
+        5% {{ opacity: 1; }}
+        15% {{ transform: translateX(-1200px) translateY(1200px) rotate(45deg); opacity: 0; }}
+        100% {{ opacity: 0; }}
+    }}
 
     /* 5. 放飞仪式动画 */
-    .ritual-container {
+    .ritual-container {{
         position: fixed;
         bottom: 0; left: 50%;
         transform: translateX(-50%);
         width: 100%; height: 100%;
         z-index: 9999;
         pointer-events: none;
-    }
-    .loading-lantern {
+    }}
+    .loading-lantern {{
         position: absolute;
         left: 50%; bottom: -100px;
         width: 45px; height: 60px;
@@ -117,39 +138,35 @@ st.markdown("""
         border: 3px solid #330000;
         box-shadow: 0 0 25px #ff9933;
         animation: rise-ritual 8s linear infinite;
-    }
-    @keyframes rise-ritual {
-        0% { bottom: -10%; opacity: 1; }
-        100% { bottom: 110%; opacity: 0; }
-    }
-
-    .firework-burst {
+    }}
+    @keyframes rise-ritual {{
+        0% {{ bottom: -10%; opacity: 1; }}
+        100% {{ bottom: 110%; opacity: 0; }}
+    }}
+    .firework-burst {{
         position: absolute;
         width: 4px; height: 4px;
         border-radius: 50%;
-        animation: explode 2s infinite ease-out;
-    }
-    @keyframes explode {
-        0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 white; }
-        100% { transform: scale(35); opacity: 0; box-shadow: 0 0 20px 5px orange, 15px -15px 20px red, -15px 15px 20px yellow; }
-    }
+        animation: explode 2.5s infinite ease-out;
+    }}
+    @keyframes explode {{
+        0% {{ transform: scale(1); opacity: 1; box-shadow: 0 0 0 white; }}
+        100% {{ transform: scale(35); opacity: 0; box-shadow: 0 0 20px 5px orange, 15px -15px 20px red, -15px 15px 20px yellow; }}
+    }}
 
-    /* 修复愿望输入框标签颜色 */
-    .stTextInput label, .stTextArea label, .stSelectbox label {
+    /* 文本输入框标签颜色 */
+    .stTextInput label, .stTextArea label, .stSelectbox label {{
         color: #ffffff !important;
-    }
+    }}
     </style>
 
     <div class="star-layer">
-        <div class="star" style="top:15%; left:25%; width:2px; height:2px; animation-delay: 0.1s;"></div>
-        <div class="star" style="top:35%; left:75%; width:3px; height:3px; animation-delay: 0.5s;"></div>
-        <div class="star" style="top:65%; left:10%; width:2px; height:2px; animation-delay: 0.9s;"></div>
-        <div class="shooting-star" style="top:10%; animation-delay: 1s;"></div>
-        <div class="shooting-star" style="top:30%; animation-delay: 6s;"></div>
+        {generate_stars(100)}
+        {generate_shooting_stars(6)}
     </div>
     """, unsafe_allow_html=True)
 
-# --- 3. 初始化服务与 UUID ---
+# --- 4. 初始化服务与 UUID ---
 cookies = EncryptedCookieManager(password="SkyWishes_Secure_2026")
 if not cookies.ready(): st.stop()
 
@@ -164,7 +181,7 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
 raw_guest_id = cookies.get("guest_id")
 current_guest_id = raw_guest_id if (raw_guest_id and raw_guest_id != "None") else None
 
-# --- 4. 语言配置 (Native Human Tone) ---
+# --- 5. 语言配置 ---
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
@@ -213,7 +230,7 @@ with top_col1:
     st.title(T["title"])
     st.markdown(f"*{T['subtitle']}*")
 
-# --- 5. 侧边栏：账户管理 (修复白色文字) ---
+# --- 6. 侧边栏：账户管理 ---
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
@@ -269,7 +286,7 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 6. 核心愿望交互 ---
+# --- 7. 核心交互 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
 
 if st.button(T["launch_btn"], use_container_width=True):
@@ -279,8 +296,8 @@ if st.button(T["launch_btn"], use_container_width=True):
         ritual_placeholder.markdown("""
             <div class="ritual-container">
                 <div class="loading-lantern"></div>
-                <div class="firework-burst" style="top:15%; left:48%; animation-delay: 1s;"></div>
-                <div class="firework-burst" style="top:35%; left:52%; animation-delay: 3s;"></div>
+                <div class="firework-burst" style="top:15%; left:47%; animation-delay: 1s;"></div>
+                <div class="firework-burst" style="top:30%; left:53%; animation-delay: 3s;"></div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -308,7 +325,7 @@ if st.button(T["launch_btn"], use_container_width=True):
                 ritual_placeholder.empty()
                 st.error(f"Launch failed: {e}")
 
-# --- 7. Kanban 展示 ---
+# --- 8. Kanban 展示 ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
@@ -335,7 +352,7 @@ if "last_plan" in st.session_state:
                 st.session_state["last_plan"] = plan
                 st.toast("Modifications saved! 🌟")
 
-# --- 8. 历史回顾 ---
+# --- 9. 历史回顾 ---
 st.divider()
 st.subheader(T["history_title"])
 if current_guest_id:
