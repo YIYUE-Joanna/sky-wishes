@@ -238,12 +238,12 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 7. 核心愿望交互：多模型轮询 ---
+# --- 7. 核心愿望交互：修复 503 重试逻辑 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
-        # 模型列表：按优先级排序，2.5-flash-lite 排第一
+        # 模型列表
         MODELS_TO_TRY = [
             "gemini-2.5-flash-lite", 
             "gemini-2.5-flash", 
@@ -268,7 +268,6 @@ if st.button(T["launch_btn"], use_container_width=True):
         with st.spinner(T["loading"]):
             for model_name in MODELS_TO_TRY:
                 try:
-                    # 尝试使用当前选定的模型运行
                     result = MyProjectCrew(model_name=model_name).crew().kickoff(inputs={'wish': user_wish, 'language': sel_lang})
                     data = result.pydantic 
                     
@@ -286,14 +285,13 @@ if st.button(T["launch_btn"], use_container_width=True):
                     
                     st.session_state["last_plan"] = data.dict()
                     success = True
-                    break # 成功后退出循环
+                    break 
                 except Exception as e:
                     err_str = str(e)
-                    # 如果是因为额度耗尽 (429/RESOURCE_EXHAUSTED)，则继续尝试下一个模型
-                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    # 关键修复：加入 503 和 UNAVAILABLE 到自动切换模型的判断条件中
+                    if any(x in err_str for x in ["429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
                         continue 
                     else:
-                        # 其他类型错误（如代码逻辑、认证等）则直接报错，不再重试
                         ritual_placeholder.empty()
                         st.error(f"Launch failed on {model_name}: {e}")
                         break
@@ -302,7 +300,6 @@ if st.button(T["launch_btn"], use_container_width=True):
                 st.balloons()
                 st.rerun()
             elif not success:
-                # 所有模型都试过了还是失败
                 ritual_placeholder.empty()
                 st.error(T["quota_error"])
 
