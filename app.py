@@ -7,6 +7,7 @@ import time
 import random
 from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
+# 确保导入路径与您的文件夹结构一致
 from my_project.crew import MyProjectCrew
 
 # --- 1. 页面配置 ---
@@ -17,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. 动态生成星空 HTML 逻辑 ---
+# --- 2. 动态生成星空 ---
 def get_star_field_html():
     stars = ""
     for _ in range(100):
@@ -28,7 +29,8 @@ def get_star_field_html():
         stars += f'<div class="star" style="top:{top}%; left:{left}%; width:{size}px; height:{size}px; animation-delay: {delay}s;"></div>'
     return f'<div class="star-layer">{stars}</div>'
 
-# --- 3. 注入视觉样式 (CSS) - 保持原样 ---
+# --- 3. 注入视觉样式 (CSS) ---
+# 强制侧边栏所有文字为白色，确保可见
 st.markdown(f"""
     <style>
     .stApp {{
@@ -36,91 +38,38 @@ st.markdown(f"""
         background-size: 400% 400%;
         animation: aurora-bg 15s ease infinite;
         color: #e6edf3;
-        overflow-x: hidden;
     }}
     @keyframes aurora-bg {{
         0% {{ background-position: 0% 50%; }}
         50% {{ background-position: 100% 50%; }}
         100% {{ background-position: 0% 50%; }}
     }}
+    /* 强制侧边栏文本为白色 */
+    [data-testid="stSidebar"] *, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label {{
+        color: #ffffff !important;
+        opacity: 1 !important;
+    }}
     [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
     }}
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, 
-    [data-testid="stSidebar"] .stCaption, [data-testid="stSidebar"] .stMarkdown p,
-    [data-testid="stSidebar"] div[role="radiogroup"] label p {{
-        color: #ffffff !important;
-        opacity: 1 !important;
-        font-weight: 500 !important;
-    }}
-    button[data-testid="stSidebarCollapseButton"] svg {{ fill: #ffffff !important; }}
     .stButton > button {{
         background-color: rgba(35, 134, 54, 0.4) !important;
         color: #ffffff !important;
         border: 2px solid rgba(210, 153, 34, 0.6) !important;
         border-radius: 8px;
-        animation: breathing-gold 2.5s infinite ease-in-out;
     }}
-    @keyframes breathing-gold {{
-        0% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
-        50% {{ box-shadow: 0 0 20px rgba(210, 153, 34, 0.7); border-color: rgba(212, 175, 55, 1); }}
-        100% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
-    }}
-    .star-layer {{
-        position: fixed;
-        top: 0; left: 0; width: 100%; height: 100%;
-        z-index: 0;
-        pointer-events: none;
-    }}
-    .star {{
-        position: absolute;
-        background: white;
-        border-radius: 50%;
-        animation: twinkle 3s infinite ease-in-out;
-    }}
-    @keyframes twinkle {{
-        0%, 100% {{ opacity: 0.3; transform: scale(1); }}
-        50% {{ opacity: 1; transform: scale(1.3); }}
-    }}
-    .ritual-container {{
-        position: fixed;
-        bottom: 0; left: 50%;
-        transform: translateX(-50%);
-        width: 100%; height: 100%;
-        z-index: 9999;
-        pointer-events: none;
-    }}
-    .loading-lantern {{
-        position: absolute;
-        left: 50%; bottom: -100px;
-        width: 45px; height: 60px;
-        background: #ff4d4d;
-        border: 3px solid #330000;
-        box-shadow: 0 0 25px #ff9933;
-        animation: rise-ritual 8s linear infinite;
-    }}
-    @keyframes rise-ritual {{
-        0% {{ bottom: -10%; opacity: 1; }}
-        100% {{ bottom: 110%; opacity: 0; }}
-    }}
-    .firework-burst {{
-        position: absolute;
-        width: 4px; height: 4px;
-        border-radius: 50%;
-        animation: explode 2.5s infinite ease-out;
-    }}
-    @keyframes explode {{
-        0% {{ transform: scale(1); opacity: 1; box-shadow: 0 0 0 white; }}
-        100% {{ transform: scale(35); opacity: 0; box-shadow: 0 0 20px 5px orange, 15px -15px 20px red, -15px 15px 20px yellow; }}
-    }}
-    .stTextInput label, .stTextArea label, .stSelectbox label {{ color: #ffffff !important; }}
+    .star-layer {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }}
+    .star {{ position: absolute; background: white; border-radius: 50%; animation: twinkle 3s infinite ease-in-out; }}
+    @keyframes twinkle {{ 0%, 100% {{ opacity: 0.3; transform: scale(1); }} 50% {{ opacity: 1; transform: scale(1.3); }} }}
+    .ritual-container {{ position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; height: 100%; z-index: 9999; pointer-events: none; }}
+    .loading-lantern {{ position: absolute; left: 50%; bottom: -100px; width: 45px; height: 60px; background: #ff4d4d; border: 3px solid #330000; box-shadow: 0 0 25px #ff9933; animation: rise-ritual 8s linear infinite; }}
+    @keyframes rise-ritual {{ 0% {{ bottom: -10%; opacity: 1; }} 100% {{ bottom: 110%; opacity: 0; }} }}
     </style>
     {get_star_field_html()}
     """, unsafe_allow_html=True)
 
-# --- 4. 初始化服务与 UUID ---
+# --- 4. 初始化服务 ---
 cookies = EncryptedCookieManager(password="SkyWishes_Secure_2026")
 if not cookies.ready(): st.stop()
 
@@ -132,206 +81,102 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
     cookies["guest_id"] = str(uuid.uuid4())
     cookies.save()
 
-raw_guest_id = cookies.get("guest_id")
-current_guest_id = raw_guest_id if (raw_guest_id and raw_guest_id != "None") else None
+current_guest_id = cookies.get("guest_id")
 
-# --- 5. 语言文案配置 ---
+# --- 5. 文案配置 ---
 LANGS = {
     "English": {
-        "title": "🏮 SkyWishes Portal",
-        "subtitle": "Bring your 2026 dreams to life among the stars.",
         "wish_label": "🌟What's on your wish list?",
         "launch_btn": "Release My Sky Lantern",
-        "save_btn": "Save Roadmap Changes",
-        "history_title": "✨ Celestial Memories",
-        "step_hint": "Action Roadmap (Feel free to refine below)",
-        "loading": "Celestial winds are carrying your wish upwards...",
-        "auth_welcome": "🌟 Welcome back to the stars!",
-        "auth_benefit": "Accounts sync your wishes across devices.",
         "forgot_pw": "Forgot Password?",
         "reset_sent": "Check your email for the link!",
         "reset_error": "Please enter your email first.",
-        "user_exists": "This email is already registered. Please login.",
-        "lantern": "Sky Lantern",
-        "auth_mode_label": "Choose Your Path",
-        "quota_error": "🌟 You've reached today's wish limit. Come back tomorrow to light another wish ✨"
+        "quota_error": "🌟 You've reached today's wish limit. ✨",
+        "loading": "Celestial winds are carrying your wish upwards..."
     },
     "中文": {
-        "title": "🏮 SkyWishes | 孔明灯广场",
-        "subtitle": "点亮 2026 的期许，让愿望在星空下有迹可循。",
         "wish_label": "许下你的 2026 新年愿望...",
         "launch_btn": "放飞孔明灯",
-        "save_btn": "保存计划修改内容",
-        "history_title": "✨ 往昔星火 (历史记录)",
-        "step_hint": "行动看板 (可点击文本框直接微调)",
-        "loading": "星空之风正带着你的愿望冉冉升起...",
-        "auth_welcome": "🌟 欢迎重回星空！",
-        "auth_benefit": "登录后，愿望将多端同步并永久保存。",
         "forgot_pw": "忘记密码？",
         "reset_sent": "重置链接已发送至邮箱！",
         "reset_error": "请先输入邮箱地址。",
-        "user_exists": "该邮箱已注册，请尝试直接登录。",
-        "lantern": "孔明灯",
-        "auth_mode_label": "选择身份",
-        "quota_error": "🌟 今天的愿望额度已达上限。请稍等片刻，或明天再来点亮愿望！"
+        "quota_error": "🌟 今天的愿望额度已达上限。✨",
+        "loading": "星空之风正带着你的愿望冉冉升起..."
     }
 }
-
-top_col1, top_col2 = st.columns([8, 2])
-with top_col2:
-    sel_lang = st.selectbox("Lang", ["English", "中文"], label_visibility="collapsed")
+sel_lang = st.sidebar.selectbox("Language", ["English", "中文"])
 T = LANGS[sel_lang]
 
-with top_col1:
-    st.title(T["title"])
-    st.markdown(f"*{T['subtitle']}*")
-
-# --- 6. 侧边栏：账户管理 ---
+# --- 6. 侧边栏：账户与重置功能 ---
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
     if not u_id:
-        st.write(T["auth_welcome"])
-        st.caption(T["auth_benefit"])
-        modes = ["Guest", "Login", "Sign Up"] if sel_lang == "English" else ["访客模式", "登录", "注册"]
-        auth_mode = st.radio(T["auth_mode_label"], modes, label_visibility="collapsed")
-        is_guest = auth_mode in ["Guest", "访客模式"]
-        is_login = auth_mode in ["Login", "登录"]
-        is_signup = auth_mode in ["Sign Up", "注册"]
-        if not is_guest:
-            email = st.text_input("Email", placeholder="your@email.com")
+        auth_mode = st.radio("Path", ["Login", "Sign Up", "Guest"])
+        if auth_mode != "Guest":
+            email = st.text_input("Email")
             pw = st.text_input("Password", type="password")
-            if is_signup and st.button("Create Account" if sel_lang == "English" else "提交注册"):
-                try:
-                    res = supabase.auth.sign_up({"email": email, "password": pw})
-                    if res.user and res.user.identities is not None and len(res.user.identities) == 0:
-                        st.warning(T["user_exists"])
-                    elif res.user: st.success("Verification email sent!")
-                except Exception as e: st.error(f"Error: {e}")
-            if is_login:
-                if st.button("Sign In" if sel_lang == "English" else "立即登录"):
+            if auth_mode == "Login":
+                if st.button("Sign In"):
                     try:
                         res = supabase.auth.sign_in_with_password({"email": email, "password": pw})
                         if res.user:
                             st.session_state["u_id"] = res.user.id
-                            st.session_state["user_email"] = res.user.email
-                            if current_guest_id:
-                                supabase.table("wish_history").update({"user_id": res.user.id}).eq("guest_id", current_guest_id).execute()
                             st.rerun()
-                    except Exception: st.error("Login failed.")
+                    except: st.error("Login failed.")
+                
+                # 密码重置功能 - 位于登录按钮下方
+                if st.button(T["forgot_pw"]):
+                    if email:
+                        try:
+                            supabase.auth.reset_password_for_email(email)
+                            st.success(T["reset_sent"])
+                        except Exception as e: st.error(f"Error: {e}")
+                    else: st.warning(T["reset_error"])
+            else:
+                if st.button("Create Account"):
+                    try: supabase.auth.sign_up({"email": email, "password": pw}); st.success("Check email!")
+                    except Exception as e: st.error(f"Error: {e}")
     else:
-        st.success(f"Online: {st.session_state.get('user_email', 'Member')}")
-        if st.button("Sign Out" if sel_lang == "English" else "退出登录"):
-            st.session_state.clear()
-            st.rerun()
+        if st.button("Sign Out"): st.session_state.clear(); st.rerun()
 
-# --- 7. 核心愿望交互：自动容错与备选模型 ---
-user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
+# --- 7. 核心交互：模型轮询 ---
+st.title("🏮 SkyWishes Portal")
+user_wish = st.text_input(T["wish_label"])
 
-# 修改点 1：使用 2026 年验证可用的模型 ID 列表
+# 整合截图中所有可用模型，Lite 优先
 MODELS_TO_TRY = [
-    "gemini-2.5-flash",       # 稳定首选
-    "gemini-2.5-flash-lite",  # 额度最高 (1000 RPD)
-    "gemini-3-flash-exp",     # 3系列实验版
-    "gemini-2.0-flash",       # 备选稳定版
-    "gemini-2.5-pro"          # 逻辑兜底
+    "gemini-2.5-flash-lite", 
+    "gemini-3-flash", 
+    "gemini-2.5-flash", 
+    "gemma-3-27b", "gemma-3-12b", "gemma-3-4b", "gemma-3-2b", "gemma-3-1b",
+    "gemini-2.0-flash", "gemini-2.5-pro"
 ]
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
-        ritual_placeholder = st.empty()
-        ritual_placeholder.markdown("""
-            <div class="ritual-container">
-                <div class="loading-lantern"></div>
-                <div class="firework-burst" style="top:20%; left:48%; animation-delay: 1s;"></div>
-                <div class="firework-burst" style="top:40%; left:52%; animation-delay: 3.5s;"></div>
-            </div>
-        """, unsafe_allow_html=True)
-
+        ritual = st.empty()
+        ritual.markdown('<div class="ritual-container"><div class="loading-lantern"></div></div>', unsafe_allow_html=True)
         with st.spinner(T["loading"]):
             success = False
-            error_log = []
-            
-            # 修改点 2：增强循环逻辑，拦截 404/429 等所有模型相关错误并尝试下一个
             for model_name in MODELS_TO_TRY:
                 try:
-                    # 使用当前模型初始化并运行
-                    result = MyProjectCrew(model_name=model_name).crew().kickoff(
-                        inputs={'wish': user_wish, 'language': sel_lang}
-                    )
-                    data = result.pydantic 
-                    
-                    db_entry = {
-                        "guest_id": current_guest_id,
-                        "user_id": st.session_state.get("u_id"),
-                        "wish_text": user_wish,
-                        "plan_json": data.dict(),
-                        "lang": sel_lang
-                    }
-                    if current_guest_id:
-                        res = supabase.table("wish_history").insert(db_entry).execute()
-                        if res.data:
-                            st.session_state["current_wish_db_id"] = res.data[0]['id']
-                    
-                    st.session_state["last_plan"] = data.dict()
+                    # 修复 ImportError：不再在 crew.py 内部循环导入
+                    result = MyProjectCrew(model_name=model_name).crew().kickoff(inputs={'wish': user_wish})
+                    st.session_state["last_plan"] = result.pydantic.dict()
                     st.balloons()
                     success = True
-                    break # 只要有一个模型跑通，立即退出循环
+                    break
                 except Exception as e:
-                    # 记录错误并继续尝试下一个模型
-                    error_log.append(f"{model_name}: {str(e)}")
-                    print(f"Model {model_name} failed. Moving to next candidate.")
-                    continue 
+                    print(f"DEBUG: {model_name} failed: {e}")
+                    continue
+            if not success: st.error(T["quota_error"])
+            else: st.rerun()
 
-            if not success:
-                ritual_placeholder.empty()
-                st.error(T["quota_error"])
-                # 开发者可见的调试信息
-                with st.expander("Diagnostic Info"):
-                    for log in error_log: st.write(f"❌ {log}")
-            else:
-                st.rerun()
-
-# --- 8. Kanban 展示与保存 ---
+# --- 8. 显示结果 ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
-    st.divider()
-    l_name = plan.get('lantern_name', T['lantern'])
-    st.subheader(f"✨ {l_name}")
+    st.subheader(f"✨ {plan.get('lantern_name', 'Wish Plan')}")
     st.write(plan.get('response', ''))
-    st.markdown(f"#### 📋 {T['step_hint']}")
-    steps = plan.get('steps', [])
-    edited_steps = []
-    if steps:
-        cols = st.columns(len(steps))
-        for i, s in enumerate(steps):
-            with cols[i]:
-                st.markdown(f'<div class="step-header" style="color:#d29922; font-weight:bold;">STEP {i+1}</div>', unsafe_allow_html=True)
-                new_s = st.text_area(f"edit_{i}", value=s, height=220, label_visibility="collapsed", key=f"kanban_step_{i}")
-                edited_steps.append(new_s)
-        if st.button(T["save_btn"], use_container_width=True):
-            if "current_wish_db_id" in st.session_state:
-                plan['steps'] = edited_steps
-                supabase.table("wish_history").update({"plan_json": plan}).eq("id", st.session_state["current_wish_db_id"]).execute()
-                st.session_state["last_plan"] = plan
-                st.toast("Modifications saved! 🌟")
-
-# --- 9. 历史回顾 ---
-st.divider()
-st.subheader(T["history_title"])
-if current_guest_id:
-    try:
-        q = supabase.table("wish_history").select("*")
-        if u_id: q = q.eq("user_id", u_id)
-        else: q = q.eq("guest_id", current_guest_id)
-        history = q.order("created_at", desc=True).execute()
-        for item in history.data:
-            with st.expander(f"🏮 {item['wish_text']} ({item['created_at'][:10]})"):
-                p = item['plan_json']
-                st.write(p.get('response', ''))
-                h_steps = p.get('steps', [])
-                if h_steps:
-                    h_cols = st.columns(len(h_steps))
-                    for idx, hs in enumerate(h_steps):
-                        h_cols[idx].info(f"**Step {idx+1}**\n\n{hs}")
-    except Exception: pass
+    for i, step in enumerate(plan.get('steps', [])):
+        st.info(f"**Step {i+1}**: {step}")
