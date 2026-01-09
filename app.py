@@ -38,17 +38,28 @@ st.markdown(f"""
         color: #e6edf3;
         overflow-x: hidden;
     }}
-    /* 强制愿望输入框标签为白色 */
-    .stTextInput label, .stTextArea label, [data-testid="stMarkdownContainer"] p {{
+    @keyframes aurora-bg {{
+        0% {{ background-position: 0% 50%; }}
+        50% {{ background-position: 100% 50%; }}
+        100% {{ background-position: 0% 50%; }}
+    }}
+    /* 强制侧边栏的标签和普通段落文字为白色 */
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] .stMarkdown p {{
         color: #ffffff !important;
         font-weight: 500 !important;
+    }}
+    /* 核心修复：确保输入框内的文字（包括邮箱、密码、占位符）为深色，使其在白色输入框中可见 */
+    [data-testid="stSidebar"] input {{
+        color: #31333F !important;
+        -webkit-text-fill-color: #31333F !important;
+    }}
+    /* 主页面愿望输入框标签也设为白色 */
+    .stTextInput label {{
+        color: #ffffff !important;
     }}
     [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
-    }}
-    [data-testid="stSidebar"] * {{
-        color: #ffffff !important;
     }}
     .stButton > button {{
         background-color: rgba(35, 134, 54, 0.4) !important;
@@ -80,7 +91,7 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
 
 current_guest_id = cookies.get("guest_id")
 
-# --- 5. 语言与文案配置 ---
+# --- 5. 语言文案配置 ---
 LANGS = {
     "English": {
         "title": "SkyWishes Portal",
@@ -110,10 +121,9 @@ LANGS = {
     }
 }
 
-# --- 6. 顶部布局：标题与右上角语言切换 ---
+# --- 6. 顶部布局 ---
 col_title, col_lang = st.columns([7, 1.5])
 with col_lang:
-    # 语言转换放在右上角
     sel_lang = st.selectbox("Language", ["English", "中文"], label_visibility="collapsed")
 
 T = LANGS[sel_lang]
@@ -122,7 +132,7 @@ with col_title:
     st.markdown(f"# 🏮 {T['title']}")
     st.markdown(f"*{T['subtitle']}*")
 
-# --- 7. 侧边栏：账户管理 ---
+# --- 7. 侧边栏 ---
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
@@ -153,11 +163,9 @@ with st.sidebar:
     else:
         if st.button("Sign Out"): st.session_state.clear(); st.rerun()
 
-# --- 8. 核心交互：模型轮询 ---
-# 愿望输入：白色标签与特定占位符
+# --- 8. 核心交互 ---
 user_wish = st.text_input(T["wish_label"], placeholder=T["placeholder"])
 
-# 整合截图中所有可用模型
 MODELS_TO_TRY = [
     "gemini-2.5-flash-lite", 
     "gemini-3-flash", 
@@ -187,7 +195,7 @@ if st.button(T["launch_btn"], use_container_width=True):
                 st.error(T["quota_error"])
             else: st.rerun()
 
-# --- 9. 显示结果与历史 ---
+# --- 9. 显示结果 ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
@@ -195,7 +203,3 @@ if "last_plan" in st.session_state:
     st.write(plan.get('response', ''))
     for i, step in enumerate(plan.get('steps', [])):
         st.info(f"**Step {i+1}**: {step}")
-
-st.divider()
-st.subheader(T["history_title"])
-# (此处保留您的 Supabase 历史读取逻辑...)
