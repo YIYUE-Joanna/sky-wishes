@@ -18,9 +18,9 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. 动态生成星空 HTML ---
+# --- 2. 动态生成星空 HTML 逻辑 ---
 def get_star_field_html():
-    # 生成 100 颗微小的闪烁繁星
+    # 生成 100 颗随机闪烁繁星
     stars = ""
     for _ in range(100):
         top = random.randint(0, 100)
@@ -29,16 +29,13 @@ def get_star_field_html():
         delay = random.uniform(0, 5)
         stars += f'<div class="star" style="top:{top}%; left:{left}%; width:{size}px; height:{size}px; animation-delay: {delay}s;"></div>'
     
-    # 【核心修改】降低流星频率，调整轨迹
+    # 限制流星数量为 3 颗，降低频率
     shooting_stars = ""
     colors = ["#ffffff", "#FFD700", "#00CED1", "#FF69B4", "#ADFF2F"]
-    # 减少数量到 3 颗，显著降低屏幕上的视觉密度
     for i in range(3):
-        top_start = random.randint(5, 30) # 限制在网页极上方
-        # 增加随机延迟，最高 20 秒，让流星随机零散出现
-        delay = i * 10 + random.uniform(0, 10)
+        top_start = random.randint(5, 30) 
+        delay = i * 12 + random.uniform(0, 10)
         color = random.choice(colors)
-        # 增加持续时间，营造“缓缓扫过”的感觉
         duration = random.uniform(8, 12) 
         shooting_stars += f'''
             <div class="shooting-star" style="
@@ -52,9 +49,10 @@ def get_star_field_html():
     return f'<div class="star-layer">{stars}{shooting_stars}</div>'
 
 # --- 3. 注入视觉样式 (CSS) ---
+# 使用 f-string 时，CSS 中的 {} 必须双写成 {{}} 以防冲突
 st.markdown(f"""
     <style>
-    /* 1. 动态极光背景 */
+    /* 极光背景 */
     .stApp {{
         background: linear-gradient(135deg, #0d1117, #161b22, #0d1117, #1a1a2e);
         background-size: 400% 400%;
@@ -68,7 +66,7 @@ st.markdown(f"""
         100% {{ background-position: 0% 50%; }}
     }}
 
-    /* 2. 侧边栏文字强化 - 纯白强制渲染 */
+    /* 侧边栏文字强制白色 */
     [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
@@ -79,13 +77,10 @@ st.markdown(f"""
     [data-testid="stSidebar"] div[role="radiogroup"] label p {{
         color: #ffffff !important;
         opacity: 1 !important;
-        font-weight: 500 !important;
     }}
-    button[data-testid="stSidebarCollapseButton"] svg {{
-        fill: #ffffff !important;
-    }}
+    button[data-testid="stSidebarCollapseButton"] svg {{ fill: #ffffff !important; }}
 
-    /* 3. 呼吸感金黄色按钮 */
+    /* 金色呼吸按钮 */
     .stButton > button {{
         background-color: rgba(35, 134, 54, 0.4) !important;
         color: #ffffff !important;
@@ -99,7 +94,7 @@ st.markdown(f"""
         100% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
     }}
 
-    /* 4. 星空层定义 */
+    /* 星空与流星核心逻辑 */
     .star-layer {{
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
@@ -117,7 +112,6 @@ st.markdown(f"""
         50% {{ opacity: 1; transform: scale(1.3); }}
     }}
 
-    /* 【核心修改】流星扫过屏幕轨迹及频率优化 */
     .shooting-star {{
         position: absolute;
         right: -200px;
@@ -125,20 +119,17 @@ st.markdown(f"""
         height: 2px;
         opacity: 0;
         z-index: 1;
-        animation-name: slow-sweep;
-        animation-iteration-count: infinite;
-        animation-timing-function: linear;
+        animation: slow-sweep infinite linear;
     }}
     @keyframes slow-sweep {{
         0% {{ transform: translate(0, 0) rotate(20deg); opacity: 0; }}
         2% {{ opacity: 1; }}
         28% {{ transform: translate(-120vw, 15vh) rotate(20deg); opacity: 1; }}
         30% {{ transform: translate(-120vw, 15vh) rotate(20deg); opacity: 0; }}
-        /* 30% 到 100% 是冷却期，流星隐形，从而降低视觉频率 */
         100% {{ transform: translate(-120vw, 15vh) rotate(20deg); opacity: 0; }}
     }}
 
-    /* 5. 放飞仪式动画 */
+    /* 放飞加载动画 */
     .ritual-container {{
         position: fixed;
         bottom: 0; left: 50%;
@@ -171,10 +162,7 @@ st.markdown(f"""
         100% {{ transform: scale(35); opacity: 0; box-shadow: 0 0 20px 5px orange, 15px -15px 20px red, -15px 15px 20px yellow; }}
     }}
 
-    /* 文本框标签全白 */
-    .stTextInput label, .stTextArea label, .stSelectbox label {{
-        color: #ffffff !important;
-    }}
+    .stTextInput label, .stTextArea label, .stSelectbox label {{ color: #ffffff !important; }}
     </style>
     {get_star_field_html()}
     """, unsafe_allow_html=True)
@@ -304,7 +292,6 @@ user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI developme
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
-        # 立即展示放飞仪式
         ritual_placeholder = st.empty()
         ritual_placeholder.markdown("""
             <div class="ritual-container">
@@ -338,7 +325,7 @@ if st.button(T["launch_btn"], use_container_width=True):
                 ritual_placeholder.empty()
                 st.error(f"Launch failed: {e}")
 
-# --- 8. Kanban 展示与保存 ---
+# --- 8. Kanban 展示与保存 (Line 364 语法错误修复点) ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
@@ -358,7 +345,33 @@ if "last_plan" in st.session_state:
                 new_s = st.text_area(f"edit_{i}", value=s, height=220, label_visibility="collapsed", key=f"kanban_step_{i}")
                 edited_steps.append(new_s)
         
+        # 修复了此处的语法括号闭合问题
         if st.button(T["save_btn"], use_container_width=True):
             if "current_wish_db_id" in st.session_state:
                 plan['steps'] = edited_steps
-                supabase.table("wish_history").update({"plan_json": plan
+                # 关键修复行：确保所有字典、方法调用完整闭合
+                supabase.table("wish_history").update({"plan_json": plan}).eq("id", st.session_state["current_wish_db_id"]).execute()
+                st.session_state["last_plan"] = plan
+                st.toast("Modifications saved! 🌟")
+
+# --- 9. 历史回顾 ---
+st.divider()
+st.subheader(T["history_title"])
+if current_guest_id:
+    try:
+        q = supabase.table("wish_history").select("*")
+        if u_id: q = q.eq("user_id", u_id)
+        else: q = q.eq("guest_id", current_guest_id)
+        history = q.order("created_at", desc=True).execute()
+
+        for item in history.data:
+            with st.expander(f"🏮 {item['wish_text']} ({item['created_at'][:10]})"):
+                p = item['plan_json']
+                st.write(p.get('response', ''))
+                h_steps = p.get('steps', [])
+                if h_steps:
+                    h_cols = st.columns(len(h_steps))
+                    for idx, hs in enumerate(h_steps):
+                        h_cols[idx].info(f"**Step {idx+1}**\n\n{hs}")
+    except Exception:
+        pass
