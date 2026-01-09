@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. 动态生成星空元素 (随机逻辑) ---
+# --- 2. 动态生成星空元素 (优化流星扫射逻辑) ---
 def generate_stars(count=100):
     stars = ""
     for _ in range(count):
@@ -29,18 +29,29 @@ def generate_stars(count=100):
         stars += f'<div class="star" style="top:{top}%; left:{left}%; width:{size}px; height:{size}px; animation-delay: {delay}s;"></div>'
     return stars
 
-def generate_shooting_stars(count=6):
+def generate_shooting_stars(count=8):
     s_stars = ""
+    # 多彩流星颜色库
     colors = ["#ffffff", "#FFD700", "#00CED1", "#FF69B4", "#ADFF2F", "#F08080", "#E6E6FA"]
     for i in range(count):
-        top = random.randint(5, 40)  # 限制在上方，更像天空
-        delay = i * 3 + random.uniform(0, 5)
+        # 起始位置在上方区域
+        top_start = random.randint(5, 30) 
+        # 错开每颗流星的启动时间
+        delay = i * 4 + random.uniform(0, 3)
         color = random.choice(colors)
-        duration = random.uniform(4, 7)
-        s_stars += f'<div class="shooting-star" style="top:{top}%; background:linear-gradient(-45deg, {color}, transparent); animation-delay: {delay}s; animation-duration: {duration}s; filter: drop-shadow(0 0 6px {color});"></div>'
+        # 较长的持续时间，营造“缓缓划过”的感觉
+        duration = random.uniform(6, 10)
+        s_stars += f'''
+            <div class="shooting-star" style="
+                top: {top_start}%; 
+                background: linear-gradient(-45deg, {color}, transparent); 
+                animation-delay: {delay}s; 
+                animation-duration: {duration}s; 
+                filter: drop-shadow(0 0 8px {color});">
+            </div>'''
     return s_stars
 
-# --- 3. 视觉一致性优化 (Aurora, Sidebar, Twinkle Stars) ---
+# --- 3. 视觉一致性优化 (Aurora, Sidebar, Fixed Shooting Stars) ---
 st.markdown(f"""
     <style>
     /* 1. 动态极光背景 */
@@ -57,7 +68,7 @@ st.markdown(f"""
         100% {{ background-position: 0% 50%; }}
     }}
 
-    /* 2. 侧边栏文字强化 - 纯白 */
+    /* 2. 侧边栏文字强化 - 纯白强制渲染 */
     [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
@@ -100,28 +111,33 @@ st.markdown(f"""
         background: white;
         border-radius: 50%;
         animation: twinkle 3s infinite ease-in-out;
-        opacity: 0.6;
     }}
     @keyframes twinkle {{
         0%, 100% {{ opacity: 0.3; transform: scale(1); }}
         50% {{ opacity: 1; transform: scale(1.3); }}
     }}
 
+    /* 修复流星：扫过屏幕的轨迹 */
     .shooting-star {{
         position: absolute;
-        top: 0; left: 110%;
-        width: 150px; height: 2px;
+        top: 0; 
+        right: -150px; /* 从屏幕外右侧开始 */
+        width: 180px; 
+        height: 2px;
         opacity: 0;
-        animation: shooting-animation infinite linear;
+        z-index: 1;
+        animation-name: sweep-across;
+        animation-iteration-count: infinite;
+        animation-timing-function: linear;
     }}
-    @keyframes shooting-animation {{
-        0% {{ transform: translateX(0) translateY(0) rotate(45deg); opacity: 0; }}
-        5% {{ opacity: 1; }}
-        15% {{ transform: translateX(-1200px) translateY(1200px) rotate(45deg); opacity: 0; }}
-        100% {{ opacity: 0; }}
+    @keyframes sweep-across {{
+        0% {{ transform: translate(0, 0) rotate(35deg); opacity: 0; }}
+        10% {{ opacity: 1; }}
+        40% {{ transform: translate(-110vw, 80vh) rotate(35deg); opacity: 0; }}
+        100% {{ transform: translate(-110vw, 80vh) rotate(35deg); opacity: 0; }}
     }}
 
-    /* 5. 放飞仪式动画 */
+    /* 5. 放飞仪式加载动画 */
     .ritual-container {{
         position: fixed;
         bottom: 0; left: 50%;
@@ -154,7 +170,7 @@ st.markdown(f"""
         100% {{ transform: scale(35); opacity: 0; box-shadow: 0 0 20px 5px orange, 15px -15px 20px red, -15px 15px 20px yellow; }}
     }}
 
-    /* 文本输入框标签颜色 */
+    /* 文本框标签全白 */
     .stTextInput label, .stTextArea label, .stSelectbox label {{
         color: #ffffff !important;
     }}
@@ -162,7 +178,7 @@ st.markdown(f"""
 
     <div class="star-layer">
         {generate_stars(100)}
-        {generate_shooting_stars(6)}
+        {generate_shooting_stars(8)}
     </div>
     """, unsafe_allow_html=True)
 
@@ -181,7 +197,7 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
 raw_guest_id = cookies.get("guest_id")
 current_guest_id = raw_guest_id if (raw_guest_id and raw_guest_id != "None") else None
 
-# --- 5. 语言配置 ---
+# --- 5. 语言文案配置 ---
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
@@ -286,7 +302,7 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 7. 核心交互 ---
+# --- 7. 核心愿望交互 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
 
 if st.button(T["launch_btn"], use_container_width=True):
@@ -296,8 +312,8 @@ if st.button(T["launch_btn"], use_container_width=True):
         ritual_placeholder.markdown("""
             <div class="ritual-container">
                 <div class="loading-lantern"></div>
-                <div class="firework-burst" style="top:15%; left:47%; animation-delay: 1s;"></div>
-                <div class="firework-burst" style="top:30%; left:53%; animation-delay: 3s;"></div>
+                <div class="firework-burst" style="top:20%; left:47%; animation-delay: 1s;"></div>
+                <div class="firework-burst" style="top:40%; left:53%; animation-delay: 3.5s;"></div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -325,7 +341,7 @@ if st.button(T["launch_btn"], use_container_width=True):
                 ritual_placeholder.empty()
                 st.error(f"Launch failed: {e}")
 
-# --- 8. Kanban 展示 ---
+# --- 8. Kanban 展示与保存 ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
