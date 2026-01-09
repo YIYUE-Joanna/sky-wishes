@@ -115,6 +115,7 @@ LANGS = {
         "auth_benefit": "Accounts sync your wishes across devices.",
         "forgot_pw": "Forgot Password?",
         "reset_sent": "Check your email for the link!",
+        "reset_error": "Please enter your email first.",
         "user_exists": "This email is already registered. Please login.",
         "lantern": "Sky Lantern",
         "auth_mode_label": "Choose Your Path"
@@ -132,6 +133,7 @@ LANGS = {
         "auth_benefit": "登录后，愿望将多端同步并永久保存。",
         "forgot_pw": "忘记密码？",
         "reset_sent": "重置链接已发送至邮箱！",
+        "reset_error": "请先输入邮箱地址。",
         "user_exists": "该邮箱已注册，请尝试直接登录。",
         "lantern": "孔明灯",
         "auth_mode_label": "选择身份"
@@ -187,6 +189,18 @@ with st.sidebar:
                                 supabase.table("wish_history").update({"user_id": res.user.id}).eq("guest_id", current_guest_id).execute()
                             st.rerun()
                     except Exception: st.error("Login failed.")
+                
+                # --- 新增：找回密码逻辑 ---
+                st.divider()
+                if st.button(T["forgot_pw"]):
+                    if email:
+                        try:
+                            supabase.auth.reset_password_for_email(email)
+                            st.info(T["reset_sent"])
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                    else:
+                        st.warning(T["reset_error"])
     else:
         st.success(f"Online: {st.session_state.get('user_email', 'Member')}")
         if st.button("Sign Out" if sel_lang == "English" else "退出登录"):
