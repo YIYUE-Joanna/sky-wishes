@@ -1,14 +1,16 @@
 import os
-# Disable telemetry warnings
+# 彻底禁用遥测信号报错
 os.environ["OTEL_SDK_DISABLED"] = "true"
 
 import streamlit as st
 import uuid
+import time
+import random
 from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
 
-# --- 1. Page Configuration: Sidebar initially expanded ---
+# --- 1. 页面配置：确保侧边栏初始状态为展开 ---
 st.set_page_config(
     page_title="SkyWishes Portal", 
     page_icon="🏮", 
@@ -16,75 +18,120 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. Visual Consistency Optimization (CSS Injection) ---
-st.markdown("""
+# --- 2. 动态生成星空 HTML 逻辑 (仅保留繁星) ---
+def get_star_field_html():
+    stars = ""
+    for _ in range(100):
+        top = random.randint(0, 100)
+        left = random.randint(0, 100)
+        size = random.uniform(1, 3)
+        delay = random.uniform(0, 5)
+        stars += f'<div class="star" style="top:{top}%; left:{left}%; width:{size}px; height:{size}px; animation-delay: {delay}s;"></div>'
+    return f'<div class="star-layer">{stars}</div>'
+
+# --- 3. 注入视觉样式 (CSS) ---
+st.markdown(f"""
     <style>
-    /* Global Background */
-    .stApp {
-        background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+    /* 1. 动态极光背景 */
+    .stApp {{
+        background: linear-gradient(135deg, #0d1117, #161b22, #0d1117, #1a1a2e);
+        background-size: 400% 400%;
+        animation: aurora-bg 15s ease infinite;
         color: #e6edf3;
-    }
-    
-    /* Sidebar Visuals: Fix visibility and color issues */
-    [data-testid="stSidebar"] {
+        overflow-x: hidden;
+    }}
+    @keyframes aurora-bg {{
+        0% {{ background-position: 0% 50%; }}
+        50% {{ background-position: 100% 50%; }}
+        100% {{ background-position: 0% 50%; }}
+    }}
+
+    /* 2. 侧边栏样式强化 - 纯白文字 */
+    [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
-        visibility: visible !important;
-    }
-    /* Force sidebar text to white */
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] .stMarkdown,
-    [data-testid="stSidebar"] div[role="radiogroup"] label p {
+    }}
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, 
+    [data-testid="stSidebar"] .stCaption, [data-testid="stSidebar"] .stMarkdown p,
+    [data-testid="stSidebar"] div[role="radiogroup"] label p {{
         color: #ffffff !important;
         opacity: 1 !important;
         font-weight: 500 !important;
-    }
+    }}
+    button[data-testid="stSidebarCollapseButton"] svg {{ fill: #ffffff !important; }}
 
-    /* Sidebar collapse arrow white */
-    button[data-testid="stSidebarCollapseButton"] svg {
-        fill: #ffffff !important;
-        color: #ffffff !important;
-    }
-
-    /* Wish input label color */
-    .stTextInput label, .stSelectbox label, .stTextArea label {
-        color: #ffffff !important;
-        opacity: 1 !important;
-        font-weight: 500 !important;
-        font-size: 1rem !important;
-    }
-    
-    /* Kanban Editor visuals */
-    .stTextArea textarea {
-        background-color: #0d1117 !important;
-        color: #ffffff !important;
-        border: 1px solid #30363d !important;
-        border-radius: 8px !important;
-    }
-    
-    /* Button styles: Green background */
-    .stButton > button {
+    /* 3. 呼吸感金黄色按钮 */
+    .stButton > button {{
         background-color: rgba(35, 134, 54, 0.4) !important;
         color: #ffffff !important;
-        border: 1px solid rgba(46, 160, 67, 0.6) !important;
+        border: 2px solid rgba(210, 153, 34, 0.6) !important;
         border-radius: 8px;
-    }
-    .stButton > button:hover {
-        background-color: rgba(35, 134, 54, 0.6) !important;
-        border-color: #3fb950 !important;
-    }
+        animation: breathing-gold 2.5s infinite ease-in-out;
+    }}
+    @keyframes breathing-gold {{
+        0% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
+        50% {{ box-shadow: 0 0 20px rgba(210, 153, 34, 0.7); border-color: rgba(212, 175, 55, 1); }}
+        100% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
+    }}
 
-    .step-header {
-        color: #d29922;
-        font-weight: bold;
-        font-size: 0.9rem;
-        margin-bottom: 8px;
-    }
+    /* 4. 星空层逻辑 */
+    .star-layer {{
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 0;
+        pointer-events: none;
+    }}
+    .star {{
+        position: absolute;
+        background: white;
+        border-radius: 50%;
+        animation: twinkle 3s infinite ease-in-out;
+    }}
+    @keyframes twinkle {{
+        0%, 100% {{ opacity: 0.3; transform: scale(1); }}
+        50% {{ opacity: 1; transform: scale(1.3); }}
+    }}
+
+    /* 5. 放飞仪式加载动画 */
+    .ritual-container {{
+        position: fixed;
+        bottom: 0; left: 50%;
+        transform: translateX(-50%);
+        width: 100%; height: 100%;
+        z-index: 9999;
+        pointer-events: none;
+    }}
+    .loading-lantern {{
+        position: absolute;
+        left: 50%; bottom: -100px;
+        width: 45px; height: 60px;
+        background: #ff4d4d;
+        border: 3px solid #330000;
+        box-shadow: 0 0 25px #ff9933;
+        animation: rise-ritual 8s linear infinite;
+    }}
+    @keyframes rise-ritual {{
+        0% {{ bottom: -10%; opacity: 1; }}
+        100% {{ bottom: 110%; opacity: 0; }}
+    }}
+    .firework-burst {{
+        position: absolute;
+        width: 4px; height: 4px;
+        border-radius: 50%;
+        animation: explode 2.5s infinite ease-out;
+    }}
+    @keyframes explode {{
+        0% {{ transform: scale(1); opacity: 1; box-shadow: 0 0 0 white; }}
+        100% {{ transform: scale(35); opacity: 0; box-shadow: 0 0 20px 5px orange, 15px -15px 20px red, -15px 15px 20px yellow; }}
+    }}
+
+    .stTextInput label, .stTextArea label, .stSelectbox label {{ color: #ffffff !important; }}
     </style>
+    {get_star_field_html()}
     """, unsafe_allow_html=True)
 
-# --- 3. Initialize Services and UUID Logic ---
+# --- 4. 初始化服务与 UUID ---
 cookies = EncryptedCookieManager(password="SkyWishes_Secure_2026")
 if not cookies.ready(): st.stop()
 
@@ -92,7 +139,6 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
-# Prevent "None" string contamination
 if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] == "None":
     cookies["guest_id"] = str(uuid.uuid4())
     cookies.save()
@@ -100,17 +146,17 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
 raw_guest_id = cookies.get("guest_id")
 current_guest_id = raw_guest_id if (raw_guest_id and raw_guest_id != "None") else None
 
-# --- 4. Language Configuration: Native Human Tone ---
+# --- 5. 语言文案配置 ---
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
-        "subtitle": "Manifest your 2026 aspirations into the stellar void.",
-        "wish_label": "What is your heart's desire for the new year?",
-        "launch_btn": "Launch Sky Lantern",
+        "subtitle": "Bring your 2026 dreams to life among the stars.",
+        "wish_label": "🌟What's on your wish list?",
+        "launch_btn": "Release My Sky Lantern",
         "save_btn": "Save Roadmap Changes",
         "history_title": "✨ Celestial Memories",
         "step_hint": "Action Roadmap (Feel free to refine below)",
-        "loading": "Architecting your path...",
+        "loading": "Celestial winds are carrying your wish upwards...",
         "auth_welcome": "🌟 Welcome back to the stars!",
         "auth_benefit": "Accounts sync your wishes across devices.",
         "forgot_pw": "Forgot Password?",
@@ -118,7 +164,8 @@ LANGS = {
         "reset_error": "Please enter your email first.",
         "user_exists": "This email is already registered. Please login.",
         "lantern": "Sky Lantern",
-        "auth_mode_label": "Choose Your Path"
+        "auth_mode_label": "Choose Your Path",
+        "quota_error": "🌟 Daily wish quota reached. Please wait a moment or come back tomorrow to light your wish!"
     },
     "中文": {
         "title": "🏮 SkyWishes | 孔明灯广场",
@@ -128,7 +175,7 @@ LANGS = {
         "save_btn": "保存计划修改内容",
         "history_title": "✨ 往昔星火 (历史记录)",
         "step_hint": "行动看板 (可点击文本框直接微调)",
-        "loading": "愿望架构师正在绘制蓝图...",
+        "loading": "星空之风正带着你的愿望冉冉升起...",
         "auth_welcome": "🌟 欢迎重回星空！",
         "auth_benefit": "登录后，愿望将多端同步并永久保存。",
         "forgot_pw": "忘记密码？",
@@ -136,7 +183,8 @@ LANGS = {
         "reset_error": "请先输入邮箱地址。",
         "user_exists": "该邮箱已注册，请尝试直接登录。",
         "lantern": "孔明灯",
-        "auth_mode_label": "选择身份"
+        "auth_mode_label": "选择身份",
+        "quota_error": "🌟 今天的愿望额度已达上限。请稍等片刻，或明天再来点亮愿望！"
     }
 }
 
@@ -149,7 +197,7 @@ with top_col1:
     st.title(T["title"])
     st.markdown(f"*{T['subtitle']}*")
 
-# --- 5. Sidebar: Account Management ---
+# --- 6. 侧边栏：账户管理 ---
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
@@ -189,28 +237,26 @@ with st.sidebar:
                                 supabase.table("wish_history").update({"user_id": res.user.id}).eq("guest_id", current_guest_id).execute()
                             st.rerun()
                     except Exception: st.error("Login failed.")
-                
-                # Logic to reduce gap: Render button right after sign-in block without divider
-                if st.button(T["forgot_pw"]):
-                    if email:
-                        try:
-                            supabase.auth.reset_password_for_email(email)
-                            st.info(T["reset_sent"])
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                    else:
-                        st.warning(T["reset_error"])
     else:
         st.success(f"Online: {st.session_state.get('user_email', 'Member')}")
         if st.button("Sign Out" if sel_lang == "English" else "退出登录"):
             st.session_state.clear()
             st.rerun()
 
-# --- 6. Core Wish Interaction ---
+# --- 7. 核心愿望交互 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
+        ritual_placeholder = st.empty()
+        ritual_placeholder.markdown("""
+            <div class="ritual-container">
+                <div class="loading-lantern"></div>
+                <div class="firework-burst" style="top:20%; left:48%; animation-delay: 1s;"></div>
+                <div class="firework-burst" style="top:40%; left:52%; animation-delay: 3.5s;"></div>
+            </div>
+        """, unsafe_allow_html=True)
+
         with st.spinner(T["loading"]):
             try:
                 result = MyProjectCrew().crew().kickoff(inputs={'wish': user_wish, 'language': sel_lang})
@@ -232,9 +278,15 @@ if st.button(T["launch_btn"], use_container_width=True):
                 st.balloons()
                 st.rerun()
             except Exception as e:
-                st.error(f"Launch failed: {e}")
+                # 专门捕获 429 额度耗尽错误
+                ritual_placeholder.empty()
+                err_str = str(e)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    st.error(T["quota_error"])
+                else:
+                    st.error(f"Launch failed: {e}")
 
-# --- 7. Editable Kanban and Save Feature ---
+# --- 8. Kanban 展示与保存 ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
@@ -250,19 +302,19 @@ if "last_plan" in st.session_state:
         cols = st.columns(len(steps))
         for i, s in enumerate(steps):
             with cols[i]:
-                st.markdown(f'<div class="step-header">STEP {i+1}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="step-header" style="color:#d29922; font-weight:bold;">STEP {i+1}</div>', unsafe_allow_html=True)
                 new_s = st.text_area(f"edit_{i}", value=s, height=220, label_visibility="collapsed", key=f"kanban_step_{i}")
                 edited_steps.append(new_s)
         
-        # Save function: read edited_steps and update database
         if st.button(T["save_btn"], use_container_width=True):
             if "current_wish_db_id" in st.session_state:
                 plan['steps'] = edited_steps
+                # 确保 Supabase 更新语句完整闭合，修复 SyntaxError
                 supabase.table("wish_history").update({"plan_json": plan}).eq("id", st.session_state["current_wish_db_id"]).execute()
                 st.session_state["last_plan"] = plan
                 st.toast("Modifications saved! 🌟")
 
-# --- 8. History Review ---
+# --- 9. 历史回顾 ---
 st.divider()
 st.subheader(T["history_title"])
 if current_guest_id:
