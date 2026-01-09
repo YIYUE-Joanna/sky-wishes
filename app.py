@@ -1,14 +1,15 @@
 import os
-# Disable telemetry warnings
+# 禁用遥测警告
 os.environ["OTEL_SDK_DISABLED"] = "true"
 
 import streamlit as st
 import uuid
+import time
 from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
 
-# --- 1. Page Configuration: Sidebar initially expanded ---
+# --- 1. 页面配置 ---
 st.set_page_config(
     page_title="SkyWishes Portal", 
     page_icon="🏮", 
@@ -16,75 +17,112 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. Visual Consistency Optimization (CSS Injection) ---
+# --- 2. 视觉一致性与动画 (CSS 注入) ---
+# 包含：流星背景、闪烁繁星、以及放飞灯笼/烟花的动画逻辑
 st.markdown("""
     <style>
-    /* Global Background */
+    /* 全局背景 */
     .stApp {
         background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
         color: #e6edf3;
+        overflow: hidden;
+    }
+
+    /* --- 星空背景层 --- */
+    .star-bg {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1;
+        background: transparent;
     }
     
-    /* Sidebar Visuals: Fix visibility and color issues */
+    .shooting-star {
+        position: absolute;
+        left: 50%; top: 50%;
+        height: 2px;
+        background: linear-gradient(-45deg, #5f91ff, rgba(0, 0, 255, 0));
+        filter: drop-shadow(0 0 6px #699bff);
+        animation: tail 3000ms ease-in-out infinite, shooting 3000ms ease-in-out infinite;
+    }
+    @keyframes tail { 0% { width: 0; } 30% { width: 100px; } 100% { width: 0; } }
+    @keyframes shooting { 0% { transform: translateX(0) translateY(0) rotate(45deg); } 100% { transform: translateX(-500px) translateY(500px) rotate(45deg); } }
+    
+    .shooting-star:nth-child(1) { top: 10%; right: 10%; animation-delay: 0s; }
+    .shooting-star:nth-child(2) { top: 30%; right: 20%; animation-delay: 5s; }
+    .shooting-star:nth-child(3) { top: 5%; right: 40%; animation-delay: 8s; }
+
+    /* --- 像素灯笼上升动画 --- */
+    @keyframes lantern-up {
+        0% { bottom: -100px; opacity: 1; transform: scale(1); }
+        80% { opacity: 1; transform: scale(1.2); }
+        100% { bottom: 80%; opacity: 0; transform: scale(0.5); }
+    }
+    
+    .pixel-lantern {
+        position: fixed;
+        left: 50%;
+        width: 40px;
+        height: 50px;
+        background: #ff4d4d;
+        border: 4px solid #330000;
+        box-shadow: 0 0 20px #ff9933;
+        z-index: 9999;
+        animation: lantern-up 3s forwards ease-in;
+    }
+    .pixel-lantern::after {
+        content: "";
+        position: absolute;
+        bottom: -15px; left: 10px;
+        width: 12px; height: 15px;
+        background: #ffcc00;
+    }
+
+    /* --- 烟花粒子效果 --- */
+    @keyframes firework {
+        0% { transform: scale(0.1); opacity: 1; }
+        100% { transform: scale(2); opacity: 0; }
+    }
+    .firework-particle {
+        position: fixed;
+        top: 20%; left: 50%;
+        width: 100px; height: 100px;
+        border: 2px dotted #ffcc00;
+        border-radius: 50%;
+        animation: firework 1s 2.8s forwards;
+        z-index: 9998;
+    }
+
+    /* --- 原有 UI 修复 --- */
     [data-testid="stSidebar"] {
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
-        visibility: visible !important;
     }
-    /* Force sidebar text to white */
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, 
     [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] .stMarkdown,
-    [data-testid="stSidebar"] div[role="radiogroup"] label p {
-        color: #ffffff !important;
-        opacity: 1 !important;
-        font-weight: 500 !important;
-    }
-
-    /* Sidebar collapse arrow white */
-    button[data-testid="stSidebarCollapseButton"] svg {
-        fill: #ffffff !important;
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] .stMarkdown {
         color: #ffffff !important;
     }
-
-    /* Wish input label color */
-    .stTextInput label, .stSelectbox label, .stTextArea label {
-        color: #ffffff !important;
-        opacity: 1 !important;
-        font-weight: 500 !important;
-        font-size: 1rem !important;
-    }
+    button[data-testid="stSidebarCollapseButton"] svg { fill: #ffffff !important; }
+    .stTextInput label, .stSelectbox label, .stTextArea label { color: #ffffff !important; }
+    .stTextArea textarea { background-color: #0d1117 !important; color: #ffffff !important; border: 1px solid #30363d !important; }
     
-    /* Kanban Editor visuals */
-    .stTextArea textarea {
-        background-color: #0d1117 !important;
-        color: #ffffff !important;
-        border: 1px solid #30363d !important;
-        border-radius: 8px !important;
-    }
-    
-    /* Button styles: Green background */
     .stButton > button {
         background-color: rgba(35, 134, 54, 0.4) !important;
         color: #ffffff !important;
         border: 1px solid rgba(46, 160, 67, 0.6) !important;
         border-radius: 8px;
     }
-    .stButton > button:hover {
-        background-color: rgba(35, 134, 54, 0.6) !important;
-        border-color: #3fb950 !important;
-    }
-
-    .step-header {
-        color: #d29922;
-        font-weight: bold;
-        font-size: 0.9rem;
-        margin-bottom: 8px;
-    }
+    .stButton > button:hover { background-color: rgba(35, 134, 54, 0.6) !important; border-color: #3fb950 !important; }
     </style>
+    
+    <div class="star-bg">
+        <div class="shooting-star"></div>
+        <div class="shooting-star"></div>
+        <div class="shooting-star"></div>
+    </div>
     """, unsafe_allow_html=True)
 
-# --- 3. Initialize Services and UUID Logic ---
+# --- 3. 初始化服务 ---
 cookies = EncryptedCookieManager(password="SkyWishes_Secure_2026")
 if not cookies.ready(): st.stop()
 
@@ -92,7 +130,6 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
-# Prevent "None" string contamination
 if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] == "None":
     cookies["guest_id"] = str(uuid.uuid4())
     cookies.save()
@@ -100,7 +137,7 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
 raw_guest_id = cookies.get("guest_id")
 current_guest_id = raw_guest_id if (raw_guest_id and raw_guest_id != "None") else None
 
-# --- 4. Language Configuration: Native Human Tone ---
+# --- 4. 语言配置 ---
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
@@ -110,7 +147,7 @@ LANGS = {
         "save_btn": "Save Roadmap Changes",
         "history_title": "✨ Celestial Memories",
         "step_hint": "Action Roadmap (Feel free to refine below)",
-        "loading": "Architecting your path...",
+        "loading": "Watching your lantern carry your wish to the stars...",
         "auth_welcome": "🌟 Welcome back to the stars!",
         "auth_benefit": "Accounts sync your wishes across devices.",
         "forgot_pw": "Forgot Password?",
@@ -128,7 +165,7 @@ LANGS = {
         "save_btn": "保存计划修改内容",
         "history_title": "✨ 往昔星火 (历史记录)",
         "step_hint": "行动看板 (可点击文本框直接微调)",
-        "loading": "愿望架构师正在绘制蓝图...",
+        "loading": "灯笼正带着你的愿望飞向星空...",
         "auth_welcome": "🌟 欢迎重回星空！",
         "auth_benefit": "登录后，愿望将多端同步并永久保存。",
         "forgot_pw": "忘记密码？",
@@ -149,7 +186,7 @@ with top_col1:
     st.title(T["title"])
     st.markdown(f"*{T['subtitle']}*")
 
-# --- 5. Sidebar: Account Management ---
+# --- 5. 侧边栏 ---
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
@@ -190,7 +227,6 @@ with st.sidebar:
                             st.rerun()
                     except Exception: st.error("Login failed.")
                 
-                # Logic to reduce gap: Render button right after sign-in block without divider
                 if st.button(T["forgot_pw"]):
                     if email:
                         try:
@@ -206,11 +242,19 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 6. Core Wish Interaction ---
+# --- 6. 愿望交互 (含放飞动画触发) ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. I want to take better care of my health.")
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
+        # 1. 注入动画 HTML
+        animation_placeholder = st.empty()
+        animation_placeholder.markdown("""
+            <div class="pixel-lantern"></div>
+            <div class="firework-particle"></div>
+        """, unsafe_allow_html=True)
+        
+        # 2. 生成过程
         with st.spinner(T["loading"]):
             try:
                 result = MyProjectCrew().crew().kickoff(inputs={'wish': user_wish, 'language': sel_lang})
@@ -229,12 +273,16 @@ if st.button(T["launch_btn"], use_container_width=True):
                         st.session_state["current_wish_db_id"] = res.data[0]['id']
                 
                 st.session_state["last_plan"] = data.dict()
+                
+                # 动画停留一小会儿让效果完整
+                time.sleep(1) 
                 st.balloons()
                 st.rerun()
             except Exception as e:
+                animation_placeholder.empty()
                 st.error(f"Launch failed: {e}")
 
-# --- 7. Editable Kanban and Save Feature ---
+# --- 7. Kanban 展示与保存 ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
@@ -254,7 +302,6 @@ if "last_plan" in st.session_state:
                 new_s = st.text_area(f"edit_{i}", value=s, height=220, label_visibility="collapsed", key=f"kanban_step_{i}")
                 edited_steps.append(new_s)
         
-        # Save function: read edited_steps and update database
         if st.button(T["save_btn"], use_container_width=True):
             if "current_wish_db_id" in st.session_state:
                 plan['steps'] = edited_steps
@@ -262,7 +309,7 @@ if "last_plan" in st.session_state:
                 st.session_state["last_plan"] = plan
                 st.toast("Modifications saved! 🌟")
 
-# --- 8. History Review ---
+# --- 8. 历史回顾 ---
 st.divider()
 st.subheader(T["history_title"])
 if current_guest_id:
