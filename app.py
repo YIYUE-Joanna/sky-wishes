@@ -251,7 +251,7 @@ with st.sidebar:
             st.rerun()
 
 # --- 7. 核心愿望交互：多模型轮询逻辑 ---
-user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
+user_wish = st.text_input(T["wish_label"], placeholder="e.g. I hope to make deeper connections with friends and family in 2026")
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
