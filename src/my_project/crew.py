@@ -9,22 +9,20 @@ class WishPlan(BaseModel):
     is_prohibited: bool
     response: str        # 存储温暖、感性的总结
     lantern_name: str = ""
-    strategy: str = ""   
-    steps: List[str] = [] 
+    strategy: str = ""   # 存储内部策略（可选，不在 Kanban 显示）
+    steps: List[str] = [] # 存储具体的行动步骤，用于 Kanban 展示
 
 @CrewBase
 class MyProjectCrew():
     """Wish Architect Crew - 愿望架构师团队"""
 
-    # 修改点：增加 __init__ 来接收动态模型名称，解决限额问题
-    def __init__(self, model_name="gemini-2.5-flash-lite"):
-        self.model_name = model_name
-        self.gemini_llm = LLM(
-            model=f"gemini/{self.model_name}", 
-            api_key=os.getenv("GOOGLE_API_KEY"),
-            temperature=0.8,
-            verbose=True
-        )
+    # 使用你指定的 Gemini 2.5 Flash
+    gemini_llm = LLM(
+        model="gemini/gemini-2.5-flash", 
+        api_key=os.getenv("GOOGLE_API_KEY"),
+        temperature=0.8, # 稍微调高，增加语言的灵动性和感性
+        verbose=True
+    )
 
     @agent
     def wish_guard(self) -> Agent:
@@ -50,7 +48,7 @@ class MyProjectCrew():
     def architecture_task(self) -> Task:
         return Task(
             config=self.tasks_config['architecture_task'],
-            output_pydantic=WishPlan 
+            output_pydantic=WishPlan # 强制输出结构化数据
         )
 
     @crew
