@@ -1,5 +1,4 @@
 import os
-# 彻底禁用遥测信号报错
 os.environ["OTEL_SDK_DISABLED"] = "true"
 
 import streamlit as st
@@ -10,7 +9,7 @@ from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
 
-# --- 1. 页面配置：确保侧边栏初始状态为展开 ---
+# --- 1. 页面配置 ---
 st.set_page_config(
     page_title="SkyWishes Portal", 
     page_icon="🏮", 
@@ -18,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. 动态生成星空 HTML 逻辑 (仅保留繁星) ---
+# --- 2. 动态生成星空 HTML 逻辑 ---
 def get_star_field_html():
     stars = ""
     for _ in range(100):
@@ -32,7 +31,6 @@ def get_star_field_html():
 # --- 3. 注入视觉样式 (CSS) ---
 st.markdown(f"""
     <style>
-    /* 1. 动态极光背景 */
     .stApp {{
         background: linear-gradient(135deg, #0d1117, #161b22, #0d1117, #1a1a2e);
         background-size: 400% 400%;
@@ -45,8 +43,6 @@ st.markdown(f"""
         50% {{ background-position: 100% 50%; }}
         100% {{ background-position: 0% 50%; }}
     }}
-
-    /* 2. 侧边栏样式强化 - 纯白文字 */
     [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
@@ -60,8 +56,6 @@ st.markdown(f"""
         font-weight: 500 !important;
     }}
     button[data-testid="stSidebarCollapseButton"] svg {{ fill: #ffffff !important; }}
-
-    /* 3. 呼吸感金黄色按钮 */
     .stButton > button {{
         background-color: rgba(35, 134, 54, 0.4) !important;
         color: #ffffff !important;
@@ -74,8 +68,6 @@ st.markdown(f"""
         50% {{ box-shadow: 0 0 20px rgba(210, 153, 34, 0.7); border-color: rgba(212, 175, 55, 1); }}
         100% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
     }}
-
-    /* 4. 星空层逻辑 */
     .star-layer {{
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
@@ -92,8 +84,6 @@ st.markdown(f"""
         0%, 100% {{ opacity: 0.3; transform: scale(1); }}
         50% {{ opacity: 1; transform: scale(1.3); }}
     }}
-
-    /* 5. 放飞仪式加载动画 */
     .ritual-container {{
         position: fixed;
         bottom: 0; left: 50%;
@@ -125,7 +115,6 @@ st.markdown(f"""
         0% {{ transform: scale(1); opacity: 1; box-shadow: 0 0 0 white; }}
         100% {{ transform: scale(35); opacity: 0; box-shadow: 0 0 20px 5px orange, 15px -15px 20px red, -15px 15px 20px yellow; }}
     }}
-
     .stTextInput label, .stTextArea label, .stSelectbox label {{ color: #ffffff !important; }}
     </style>
     {get_star_field_html()}
@@ -201,31 +190,24 @@ with top_col1:
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
-    
     if not u_id:
         st.write(T["auth_welcome"])
         st.caption(T["auth_benefit"])
         modes = ["Guest", "Login", "Sign Up"] if sel_lang == "English" else ["访客模式", "登录", "注册"]
         auth_mode = st.radio(T["auth_mode_label"], modes, label_visibility="collapsed")
-        
         is_guest = auth_mode in ["Guest", "访客模式"]
         is_login = auth_mode in ["Login", "登录"]
         is_signup = auth_mode in ["Sign Up", "注册"]
-
         if not is_guest:
             email = st.text_input("Email", placeholder="your@email.com")
             pw = st.text_input("Password", type="password")
-            
             if is_signup and st.button("Create Account" if sel_lang == "English" else "提交注册"):
                 try:
                     res = supabase.auth.sign_up({"email": email, "password": pw})
                     if res.user and res.user.identities is not None and len(res.user.identities) == 0:
                         st.warning(T["user_exists"])
-                    elif res.user:
-                        st.success("Verification email sent!")
-                except Exception as e:
-                    st.error(f"Error: {e}")
-
+                    elif res.user: st.success("Verification email sent!")
+                except Exception as e: st.error(f"Error: {e}")
             if is_login:
                 if st.button("Sign In" if sel_lang == "English" else "立即登录"):
                     try:
@@ -243,8 +225,19 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 7. 核心愿望交互 ---
+# --- 7. 核心愿望交互：加入自动模型切换逻辑 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
+
+
+# 定义 2026 年可用的备选模型列表（按推荐顺序排列）
+MODELS_TO_TRY = [
+    "gemini-3-flash",           
+    "gemini-3-pro",            
+    "gemini-2.5-flash",        
+    "gemini-2.5-flash-lite",   # 额度最高 (1000+ RPD)，极致低延迟的开发首选
+    "gemini-2.5-pro",          # 2.5 系列的长文本与复杂任务专家
+    "gemini-2.0-flash"         # 2.0 系列稳定版，作为最终备选
+]
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
@@ -258,33 +251,49 @@ if st.button(T["launch_btn"], use_container_width=True):
         """, unsafe_allow_html=True)
 
         with st.spinner(T["loading"]):
-            try:
-                result = MyProjectCrew().crew().kickoff(inputs={'wish': user_wish, 'language': sel_lang})
-                data = result.pydantic 
-                
-                db_entry = {
-                    "guest_id": current_guest_id,
-                    "user_id": st.session_state.get("u_id"),
-                    "wish_text": user_wish,
-                    "plan_json": data.dict(),
-                    "lang": sel_lang
-                }
-                if current_guest_id:
-                    res = supabase.table("wish_history").insert(db_entry).execute()
-                    if res.data:
-                        st.session_state["current_wish_db_id"] = res.data[0]['id']
-                
-                st.session_state["last_plan"] = data.dict()
-                st.balloons()
-                st.rerun()
-            except Exception as e:
-                # 专门捕获 429 额度耗尽错误
+            success = False
+            # 循环尝试模型
+            for model_name in MODELS_TO_TRY:
+                try:
+                    # 传入当前模型名称初始化 Crew
+                    result = MyProjectCrew(model_name=model_name).crew().kickoff(inputs={'wish': user_wish, 'language': sel_lang})
+                    data = result.pydantic 
+                    
+                    db_entry = {
+                        "guest_id": current_guest_id,
+                        "user_id": st.session_state.get("u_id"),
+                        "wish_text": user_wish,
+                        "plan_json": data.dict(),
+                        "lang": sel_lang
+                    }
+                    if current_guest_id:
+                        res = supabase.table("wish_history").insert(db_entry).execute()
+                        if res.data:
+                            st.session_state["current_wish_db_id"] = res.data[0]['id']
+                    
+                    st.session_state["last_plan"] = data.dict()
+                    st.balloons()
+                    success = True
+                    break # 成功则跳出模型循环
+                except Exception as e:
+                    err_str = str(e)
+                    # 如果遇到额度限制错误，打印日志并尝试下一个模型
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        # 在后台记录一下尝试失败，但对前台用户保持平滑
+                        print(f"Model {model_name} rate limited, trying next...")
+                        continue
+                    else:
+                        # 如果是其他错误（比如代码 bug），则停止尝试
+                        ritual_placeholder.empty()
+                        st.error(f"Launch failed due to technical error: {e}")
+                        break
+            
+            # 如果循环走完都没有成功
+            if not success:
                 ritual_placeholder.empty()
-                err_str = str(e)
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                    st.error(T["quota_error"])
-                else:
-                    st.error(f"Launch failed: {e}")
+                st.error(T["quota_error"])
+            else:
+                st.rerun()
 
 # --- 8. Kanban 展示与保存 ---
 if "last_plan" in st.session_state:
@@ -293,11 +302,9 @@ if "last_plan" in st.session_state:
     l_name = plan.get('lantern_name', T['lantern'])
     st.subheader(f"✨ {l_name}")
     st.write(plan.get('response', ''))
-    
     st.markdown(f"#### 📋 {T['step_hint']}")
     steps = plan.get('steps', [])
     edited_steps = []
-    
     if steps:
         cols = st.columns(len(steps))
         for i, s in enumerate(steps):
@@ -305,11 +312,9 @@ if "last_plan" in st.session_state:
                 st.markdown(f'<div class="step-header" style="color:#d29922; font-weight:bold;">STEP {i+1}</div>', unsafe_allow_html=True)
                 new_s = st.text_area(f"edit_{i}", value=s, height=220, label_visibility="collapsed", key=f"kanban_step_{i}")
                 edited_steps.append(new_s)
-        
         if st.button(T["save_btn"], use_container_width=True):
             if "current_wish_db_id" in st.session_state:
                 plan['steps'] = edited_steps
-                # 确保 Supabase 更新语句完整闭合，修复 SyntaxError
                 supabase.table("wish_history").update({"plan_json": plan}).eq("id", st.session_state["current_wish_db_id"]).execute()
                 st.session_state["last_plan"] = plan
                 st.toast("Modifications saved! 🌟")
@@ -323,7 +328,6 @@ if current_guest_id:
         if u_id: q = q.eq("user_id", u_id)
         else: q = q.eq("guest_id", current_guest_id)
         history = q.order("created_at", desc=True).execute()
-
         for item in history.data:
             with st.expander(f"🏮 {item['wish_text']} ({item['created_at'][:10]})"):
                 p = item['plan_json']
@@ -333,5 +337,4 @@ if current_guest_id:
                     h_cols = st.columns(len(h_steps))
                     for idx, hs in enumerate(h_steps):
                         h_cols[idx].info(f"**Step {idx+1}**\n\n{hs}")
-    except Exception:
-        pass
+    except Exception: pass
