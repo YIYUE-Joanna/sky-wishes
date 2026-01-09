@@ -165,7 +165,7 @@ LANGS = {
         "user_exists": "This email is already registered. Please login.",
         "lantern": "Sky Lantern",
         "auth_mode_label": "Choose Your Path",
-        "quota_error": "🌟 Daily wish quota reached. Please wait a moment or come back tomorrow to light your wish!"
+        "quota_error": "🌟 You've reached today's wish limit. Come back tomorrow to light another wish ✨"
     },
     "中文": {
         "title": "🏮 SkyWishes | 孔明灯广场",
