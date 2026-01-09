@@ -7,24 +7,24 @@ import os
 # 定义输出结构
 class WishPlan(BaseModel):
     is_prohibited: bool
-    response: str        
+    response: str        # 存储温暖、感性的总结
     lantern_name: str = ""
-    strategy: str = ""   
-    steps: List[str] = [] 
+    strategy: str = ""   # 存储内部策略
+    steps: List[str] = [] # 存储具体的行动步骤
 
 @CrewBase
 class MyProjectCrew():
     """Wish Architect Crew - 愿望架构师团队"""
 
-    # 修改点：增加 __init__ 来接收动态模型名称
+    # 修改：增加初始化方法来接收动态模型 ID
     def __init__(self, model_name="gemini-2.5-flash"):
         self.model_name = model_name
-        # 动态初始化 LLM
+        # 动态初始化 LLM，增加重试配置提高稳定性
         self.gemini_llm = LLM(
             model=f"gemini/{self.model_name}", 
             api_key=os.getenv("GOOGLE_API_KEY"),
             temperature=0.8,
-            verbose=True
+            max_retries=1 # 遇到临时网络问题自动重试一次
         )
 
     @agent

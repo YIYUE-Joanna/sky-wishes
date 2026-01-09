@@ -28,7 +28,7 @@ def get_star_field_html():
         stars += f'<div class="star" style="top:{top}%; left:{left}%; width:{size}px; height:{size}px; animation-delay: {delay}s;"></div>'
     return f'<div class="star-layer">{stars}</div>'
 
-# --- 3. 注入视觉样式 (CSS) ---
+# --- 3. 注入视觉样式 (CSS) - 保持原样 ---
 st.markdown(f"""
     <style>
     .stApp {{
@@ -225,18 +225,16 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 7. 核心愿望交互：加入自动模型切换逻辑 ---
+# --- 7. 核心愿望交互：自动容错与备选模型 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
 
-
-# 定义 2026 年可用的备选模型列表（按推荐顺序排列）
+# 修改点 1：使用 2026 年验证可用的模型 ID 列表
 MODELS_TO_TRY = [
-    "gemini-3-flash",           
-    "gemini-3-pro",            
-    "gemini-2.5-flash",        
-    "gemini-2.5-flash-lite",   # 额度最高 (1000+ RPD)，极致低延迟的开发首选
-    "gemini-2.5-pro",          # 2.5 系列的长文本与复杂任务专家
-    "gemini-2.0-flash"         # 2.0 系列稳定版，作为最终备选
+    "gemini-2.5-flash",       # 稳定首选
+    "gemini-2.5-flash-lite",  # 额度最高 (1000 RPD)
+    "gemini-3-flash-exp",     # 3系列实验版
+    "gemini-2.0-flash",       # 备选稳定版
+    "gemini-2.5-pro"          # 逻辑兜底
 ]
 
 if st.button(T["launch_btn"], use_container_width=True):
@@ -252,11 +250,15 @@ if st.button(T["launch_btn"], use_container_width=True):
 
         with st.spinner(T["loading"]):
             success = False
-            # 循环尝试模型
+            error_log = []
+            
+            # 修改点 2：增强循环逻辑，拦截 404/429 等所有模型相关错误并尝试下一个
             for model_name in MODELS_TO_TRY:
                 try:
-                    # 传入当前模型名称初始化 Crew
-                    result = MyProjectCrew(model_name=model_name).crew().kickoff(inputs={'wish': user_wish, 'language': sel_lang})
+                    # 使用当前模型初始化并运行
+                    result = MyProjectCrew(model_name=model_name).crew().kickoff(
+                        inputs={'wish': user_wish, 'language': sel_lang}
+                    )
                     data = result.pydantic 
                     
                     db_entry = {
@@ -274,24 +276,19 @@ if st.button(T["launch_btn"], use_container_width=True):
                     st.session_state["last_plan"] = data.dict()
                     st.balloons()
                     success = True
-                    break # 成功则跳出模型循环
+                    break # 只要有一个模型跑通，立即退出循环
                 except Exception as e:
-                    err_str = str(e)
-                    # 如果遇到额度限制错误，打印日志并尝试下一个模型
-                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                        # 在后台记录一下尝试失败，但对前台用户保持平滑
-                        print(f"Model {model_name} rate limited, trying next...")
-                        continue
-                    else:
-                        # 如果是其他错误（比如代码 bug），则停止尝试
-                        ritual_placeholder.empty()
-                        st.error(f"Launch failed due to technical error: {e}")
-                        break
-            
-            # 如果循环走完都没有成功
+                    # 记录错误并继续尝试下一个模型
+                    error_log.append(f"{model_name}: {str(e)}")
+                    print(f"Model {model_name} failed. Moving to next candidate.")
+                    continue 
+
             if not success:
                 ritual_placeholder.empty()
                 st.error(T["quota_error"])
+                # 开发者可见的调试信息
+                with st.expander("Diagnostic Info"):
+                    for log in error_log: st.write(f"❌ {log}")
             else:
                 st.rerun()
 
