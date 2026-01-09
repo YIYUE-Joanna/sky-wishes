@@ -16,13 +16,16 @@ class WishPlan(BaseModel):
 class MyProjectCrew():
     """Wish Architect Crew - 愿望架构师团队"""
 
-    # 使用你指定的 Gemini 2.5 Flash
-    gemini_llm = LLM(
-        model="gemini/gemini-2.5-flash", 
-        api_key=os.getenv("GOOGLE_API_KEY"),
-        temperature=0.8, # 稍微调高，增加语言的灵动性和感性
-        verbose=True
-    )
+    # 修改：通过初始化方法动态接收模型名称
+    def __init__(self, model_name="gemini-2.5-flash-lite"):
+        self.model_name = model_name
+        # 动态初始化 LLM
+        self.gemini_llm = LLM(
+            model=f"gemini/{self.model_name}", 
+            api_key=os.getenv("GOOGLE_API_KEY"),
+            temperature=0.8,
+            verbose=True
+        )
 
     @agent
     def wish_guard(self) -> Agent:

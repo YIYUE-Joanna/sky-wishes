@@ -10,7 +10,7 @@ from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
 
-# --- 1. 页面配置：确保侧边栏初始状态为展开 ---
+# --- 1. 页面配置 ---
 st.set_page_config(
     page_title="SkyWishes Portal", 
     page_icon="🏮", 
@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. 动态生成星空 HTML 逻辑 (仅保留繁星) ---
+# --- 2. 动态生成星空 HTML 逻辑 ---
 def get_star_field_html():
     stars = ""
     for _ in range(100):
@@ -32,7 +32,6 @@ def get_star_field_html():
 # --- 3. 注入视觉样式 (CSS) ---
 st.markdown(f"""
     <style>
-    /* 1. 动态极光背景 */
     .stApp {{
         background: linear-gradient(135deg, #0d1117, #161b22, #0d1117, #1a1a2e);
         background-size: 400% 400%;
@@ -46,7 +45,6 @@ st.markdown(f"""
         100% {{ background-position: 0% 50%; }}
     }}
 
-    /* 2. 侧边栏样式强化 - 纯白文字 */
     [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
@@ -61,7 +59,6 @@ st.markdown(f"""
     }}
     button[data-testid="stSidebarCollapseButton"] svg {{ fill: #ffffff !important; }}
 
-    /* 3. 呼吸感金黄色按钮 */
     .stButton > button {{
         background-color: rgba(35, 134, 54, 0.4) !important;
         color: #ffffff !important;
@@ -75,7 +72,6 @@ st.markdown(f"""
         100% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
     }}
 
-    /* 4. 星空层逻辑 */
     .star-layer {{
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
@@ -93,7 +89,6 @@ st.markdown(f"""
         50% {{ opacity: 1; transform: scale(1.3); }}
     }}
 
-    /* 5. 放飞仪式加载动画 */
     .ritual-container {{
         position: fixed;
         bottom: 0; left: 50%;
@@ -243,11 +238,23 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 7. 核心愿望交互 ---
+# --- 7. 核心愿望交互：多模型轮询 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
+        # 模型列表：按优先级排序，2.5-flash-lite 排第一
+        MODELS_TO_TRY = [
+            "gemini-2.5-flash-lite", 
+            "gemini-2.5-flash", 
+            "gemini-3-flash", 
+            "gemini-2.5-flash-tts",
+            "gemma-3-27b",
+            "gemma-3-12b",
+            "gemma-3-2b",
+            "gemma-3-1b"
+        ]
+        
         ritual_placeholder = st.empty()
         ritual_placeholder.markdown("""
             <div class="ritual-container">
@@ -257,34 +264,47 @@ if st.button(T["launch_btn"], use_container_width=True):
             </div>
         """, unsafe_allow_html=True)
 
+        success = False
         with st.spinner(T["loading"]):
-            try:
-                result = MyProjectCrew().crew().kickoff(inputs={'wish': user_wish, 'language': sel_lang})
-                data = result.pydantic 
-                
-                db_entry = {
-                    "guest_id": current_guest_id,
-                    "user_id": st.session_state.get("u_id"),
-                    "wish_text": user_wish,
-                    "plan_json": data.dict(),
-                    "lang": sel_lang
-                }
-                if current_guest_id:
-                    res = supabase.table("wish_history").insert(db_entry).execute()
-                    if res.data:
-                        st.session_state["current_wish_db_id"] = res.data[0]['id']
-                
-                st.session_state["last_plan"] = data.dict()
+            for model_name in MODELS_TO_TRY:
+                try:
+                    # 尝试使用当前选定的模型运行
+                    result = MyProjectCrew(model_name=model_name).crew().kickoff(inputs={'wish': user_wish, 'language': sel_lang})
+                    data = result.pydantic 
+                    
+                    db_entry = {
+                        "guest_id": current_guest_id,
+                        "user_id": st.session_state.get("u_id"),
+                        "wish_text": user_wish,
+                        "plan_json": data.dict(),
+                        "lang": sel_lang
+                    }
+                    if current_guest_id:
+                        res = supabase.table("wish_history").insert(db_entry).execute()
+                        if res.data:
+                            st.session_state["current_wish_db_id"] = res.data[0]['id']
+                    
+                    st.session_state["last_plan"] = data.dict()
+                    success = True
+                    break # 成功后退出循环
+                except Exception as e:
+                    err_str = str(e)
+                    # 如果是因为额度耗尽 (429/RESOURCE_EXHAUSTED)，则继续尝试下一个模型
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        continue 
+                    else:
+                        # 其他类型错误（如代码逻辑、认证等）则直接报错，不再重试
+                        ritual_placeholder.empty()
+                        st.error(f"Launch failed on {model_name}: {e}")
+                        break
+
+            if success:
                 st.balloons()
                 st.rerun()
-            except Exception as e:
-                # 专门捕获 429 额度耗尽错误
+            elif not success:
+                # 所有模型都试过了还是失败
                 ritual_placeholder.empty()
-                err_str = str(e)
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                    st.error(T["quota_error"])
-                else:
-                    st.error(f"Launch failed: {e}")
+                st.error(T["quota_error"])
 
 # --- 8. Kanban 展示与保存 ---
 if "last_plan" in st.session_state:
@@ -309,7 +329,6 @@ if "last_plan" in st.session_state:
         if st.button(T["save_btn"], use_container_width=True):
             if "current_wish_db_id" in st.session_state:
                 plan['steps'] = edited_steps
-                # 确保 Supabase 更新语句完整闭合，修复 SyntaxError
                 supabase.table("wish_history").update({"plan_json": plan}).eq("id", st.session_state["current_wish_db_id"]).execute()
                 st.session_state["last_plan"] = plan
                 st.toast("Modifications saved! 🌟")
