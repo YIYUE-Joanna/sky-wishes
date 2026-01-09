@@ -29,14 +29,17 @@ def get_star_field_html():
         delay = random.uniform(0, 5)
         stars += f'<div class="star" style="top:{top}%; left:{left}%; width:{size}px; height:{size}px; animation-delay: {delay}s;"></div>'
     
-    # 生成 8 颗彩色流星
+    # 【核心修改】降低流星频率，调整轨迹
     shooting_stars = ""
-    colors = ["#ffffff", "#FFD700", "#00CED1", "#FF69B4", "#ADFF2F", "#F08080", "#E6E6FA"]
-    for i in range(8):
-        top_start = random.randint(5, 40) # 限制在上方
-        delay = i * 4 + random.uniform(0, 3)
+    colors = ["#ffffff", "#FFD700", "#00CED1", "#FF69B4", "#ADFF2F"]
+    # 减少数量到 3 颗，显著降低屏幕上的视觉密度
+    for i in range(3):
+        top_start = random.randint(5, 30) # 限制在网页极上方
+        # 增加随机延迟，最高 20 秒，让流星随机零散出现
+        delay = i * 10 + random.uniform(0, 10)
         color = random.choice(colors)
-        duration = random.uniform(6, 10) # 缓缓扫过
+        # 增加持续时间，营造“缓缓扫过”的感觉
+        duration = random.uniform(8, 12) 
         shooting_stars += f'''
             <div class="shooting-star" style="
                 top: {top_start}%; 
@@ -49,7 +52,6 @@ def get_star_field_html():
     return f'<div class="star-layer">{stars}{shooting_stars}</div>'
 
 # --- 3. 注入视觉样式 (CSS) ---
-# 注意：CSS 中的所有 { } 必须双写为 {{ }} 以适配 f-string
 st.markdown(f"""
     <style>
     /* 1. 动态极光背景 */
@@ -66,7 +68,7 @@ st.markdown(f"""
         100% {{ background-position: 0% 50%; }}
     }}
 
-    /* 2. 侧边栏文字强化 - 纯白 */
+    /* 2. 侧边栏文字强化 - 纯白强制渲染 */
     [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
@@ -115,21 +117,25 @@ st.markdown(f"""
         50% {{ opacity: 1; transform: scale(1.3); }}
     }}
 
-    /* 流星动画：斜向下扫过屏幕 */
+    /* 【核心修改】流星扫过屏幕轨迹及频率优化 */
     .shooting-star {{
         position: absolute;
-        right: -150px; /* 从屏幕外右侧开始 */
+        right: -200px;
         width: 150px; 
         height: 2px;
         opacity: 0;
         z-index: 1;
-        animation: sweep-across infinite linear;
+        animation-name: slow-sweep;
+        animation-iteration-count: infinite;
+        animation-timing-function: linear;
     }}
-    @keyframes sweep-across {{
-        0% {{ transform: translate(0, 0) rotate(35deg); opacity: 0; }}
-        10% {{ opacity: 1; }}
-        35% {{ transform: translate(-120vw, 85vh) rotate(35deg); opacity: 0; }}
-        100% {{ transform: translate(-120vw, 85vh) rotate(35deg); opacity: 0; }}
+    @keyframes slow-sweep {{
+        0% {{ transform: translate(0, 0) rotate(20deg); opacity: 0; }}
+        2% {{ opacity: 1; }}
+        28% {{ transform: translate(-120vw, 15vh) rotate(20deg); opacity: 1; }}
+        30% {{ transform: translate(-120vw, 15vh) rotate(20deg); opacity: 0; }}
+        /* 30% 到 100% 是冷却期，流星隐形，从而降低视觉频率 */
+        100% {{ transform: translate(-120vw, 15vh) rotate(20deg); opacity: 0; }}
     }}
 
     /* 5. 放飞仪式动画 */
@@ -188,7 +194,7 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
 raw_guest_id = cookies.get("guest_id")
 current_guest_id = raw_guest_id if (raw_guest_id and raw_guest_id != "None") else None
 
-# --- 5. 语言配置 (Native Human Tone) ---
+# --- 5. 语言配置 ---
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
@@ -355,28 +361,4 @@ if "last_plan" in st.session_state:
         if st.button(T["save_btn"], use_container_width=True):
             if "current_wish_db_id" in st.session_state:
                 plan['steps'] = edited_steps
-                supabase.table("wish_history").update({"plan_json": plan}).eq("id", st.session_state["current_wish_db_id"]).execute()
-                st.session_state["last_plan"] = plan
-                st.toast("Modifications saved! 🌟")
-
-# --- 9. 历史回顾 ---
-st.divider()
-st.subheader(T["history_title"])
-if current_guest_id:
-    try:
-        q = supabase.table("wish_history").select("*")
-        if u_id: q = q.eq("user_id", u_id)
-        else: q = q.eq("guest_id", current_guest_id)
-        history = q.order("created_at", desc=True).execute()
-
-        for item in history.data:
-            with st.expander(f"🏮 {item['wish_text']} ({item['created_at'][:10]})"):
-                p = item['plan_json']
-                st.write(p.get('response', ''))
-                h_steps = p.get('steps', [])
-                if h_steps:
-                    h_cols = st.columns(len(h_steps))
-                    for idx, hs in enumerate(h_steps):
-                        h_cols[idx].info(f"**Step {idx+1}**\n\n{hs}")
-    except Exception:
-        pass
+                supabase.table("wish_history").update({"plan_json": plan
