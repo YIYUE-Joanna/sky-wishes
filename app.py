@@ -45,6 +45,7 @@ st.markdown(f"""
         100% {{ background-position: 0% 50%; }}
     }}
 
+    /* 侧边栏样式 - 确保所有文字和标签为纯白 */
     [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
@@ -232,18 +233,28 @@ with st.sidebar:
                                 supabase.table("wish_history").update({"user_id": res.user.id}).eq("guest_id", current_guest_id).execute()
                             st.rerun()
                     except Exception: st.error("Login failed.")
+                
+                # --- 新增：重置密码功能，位于 Login 正下方 ---
+                if st.button(T["forgot_pw"]):
+                    if email:
+                        try:
+                            supabase.auth.reset_password_for_email(email)
+                            st.info(T["reset_sent"])
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                    else:
+                        st.warning(T["reset_error"])
     else:
         st.success(f"Online: {st.session_state.get('user_email', 'Member')}")
         if st.button("Sign Out" if sel_lang == "English" else "退出登录"):
             st.session_state.clear()
             st.rerun()
 
-# --- 7. 核心愿望交互：修复 503 重试逻辑 ---
+# --- 7. 核心愿望交互：多模型轮询逻辑 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
-        # 模型列表
         MODELS_TO_TRY = [
             "gemini-2.5-flash-lite", 
             "gemini-2.5-flash", 
@@ -288,7 +299,7 @@ if st.button(T["launch_btn"], use_container_width=True):
                     break 
                 except Exception as e:
                     err_str = str(e)
-                    # 关键修复：加入 503 和 UNAVAILABLE 到自动切换模型的判断条件中
+                    # 包含 429 和 503 重试逻辑
                     if any(x in err_str for x in ["429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
                         continue 
                     else:
