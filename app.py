@@ -1,5 +1,5 @@
 import os
-# 禁用遥测警告
+# Disable telemetry warnings
 os.environ["OTEL_SDK_DISABLED"] = "true"
 
 import streamlit as st
@@ -8,7 +8,7 @@ from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
 
-# --- 1. 页面配置：侧边栏初始展开 ---
+# --- 1. Page Configuration: Sidebar initially expanded ---
 st.set_page_config(
     page_title="SkyWishes Portal", 
     page_icon="🏮", 
@@ -16,22 +16,22 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 2. 视觉一致性优化 (CSS 注入) ---
+# --- 2. Visual Consistency Optimization (CSS Injection) ---
 st.markdown("""
     <style>
-    /* 全局背景 */
+    /* Global Background */
     .stApp {
         background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
         color: #e6edf3;
     }
     
-    /* 侧边栏视觉：修复消失与颜色问题 */
+    /* Sidebar Visuals: Fix visibility and color issues */
     [data-testid="stSidebar"] {
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
         visibility: visible !important;
     }
-    /* 侧边栏所有文字强制白色 */
+    /* Force sidebar text to white */
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, 
     [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label,
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] .stMarkdown,
@@ -41,13 +41,13 @@ st.markdown("""
         font-weight: 500 !important;
     }
 
-    /* 侧边栏收缩箭头白色 */
+    /* Sidebar collapse arrow white */
     button[data-testid="stSidebarCollapseButton"] svg {
         fill: #ffffff !important;
         color: #ffffff !important;
     }
 
-    /* 愿望输入框标签颜色 */
+    /* Wish input label color */
     .stTextInput label, .stSelectbox label, .stTextArea label {
         color: #ffffff !important;
         opacity: 1 !important;
@@ -55,7 +55,7 @@ st.markdown("""
         font-size: 1rem !important;
     }
     
-    /* Kanban 编辑框视觉 */
+    /* Kanban Editor visuals */
     .stTextArea textarea {
         background-color: #0d1117 !important;
         color: #ffffff !important;
@@ -63,7 +63,7 @@ st.markdown("""
         border-radius: 8px !important;
     }
     
-    /* 按钮样式：绿色常驻背景 */
+    /* Button styles: Green background */
     .stButton > button {
         background-color: rgba(35, 134, 54, 0.4) !important;
         color: #ffffff !important;
@@ -84,7 +84,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. 初始化服务与 UUID 逻辑 ---
+# --- 3. Initialize Services and UUID Logic ---
 cookies = EncryptedCookieManager(password="SkyWishes_Secure_2026")
 if not cookies.ready(): st.stop()
 
@@ -92,7 +92,7 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
-# 严防 "None" 字符串污染
+# Prevent "None" string contamination
 if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] == "None":
     cookies["guest_id"] = str(uuid.uuid4())
     cookies.save()
@@ -100,7 +100,7 @@ if "guest_id" not in cookies or not cookies["guest_id"] or cookies["guest_id"] =
 raw_guest_id = cookies.get("guest_id")
 current_guest_id = raw_guest_id if (raw_guest_id and raw_guest_id != "None") else None
 
-# --- 4. 语言配置：Native Human Tone ---
+# --- 4. Language Configuration: Native Human Tone ---
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
@@ -149,7 +149,7 @@ with top_col1:
     st.title(T["title"])
     st.markdown(f"*{T['subtitle']}*")
 
-# --- 5. 侧边栏：账户管理 ---
+# --- 5. Sidebar: Account Management ---
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
@@ -190,8 +190,7 @@ with st.sidebar:
                             st.rerun()
                     except Exception: st.error("Login failed.")
                 
-                # --- 新增：找回密码逻辑 ---
-                st.divider()
+                # Logic to reduce gap: Render button right after sign-in block without divider
                 if st.button(T["forgot_pw"]):
                     if email:
                         try:
@@ -207,7 +206,7 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 6. 核心愿望交互 ---
+# --- 6. Core Wish Interaction ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
 
 if st.button(T["launch_btn"], use_container_width=True):
@@ -235,7 +234,7 @@ if st.button(T["launch_btn"], use_container_width=True):
             except Exception as e:
                 st.error(f"Launch failed: {e}")
 
-# --- 7. 可编辑 Kanban 与保存功能 ---
+# --- 7. Editable Kanban and Save Feature ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
@@ -255,7 +254,7 @@ if "last_plan" in st.session_state:
                 new_s = st.text_area(f"edit_{i}", value=s, height=220, label_visibility="collapsed", key=f"kanban_step_{i}")
                 edited_steps.append(new_s)
         
-        # 保存功能：读取 edited_steps 并更新数据库
+        # Save function: read edited_steps and update database
         if st.button(T["save_btn"], use_container_width=True):
             if "current_wish_db_id" in st.session_state:
                 plan['steps'] = edited_steps
@@ -263,7 +262,7 @@ if "last_plan" in st.session_state:
                 st.session_state["last_plan"] = plan
                 st.toast("Modifications saved! 🌟")
 
-# --- 8. 历史回顾 ---
+# --- 8. History Review ---
 st.divider()
 st.subheader(T["history_title"])
 if current_guest_id:
