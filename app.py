@@ -104,9 +104,9 @@ current_guest_id = raw_guest_id if (raw_guest_id and raw_guest_id != "None") els
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
-        "subtitle": "Manifest your 2026 aspirations into the stellar void.",
-        "wish_label": "What is your heart's desire for the new year?",
-        "launch_btn": "Launch Sky Lantern",
+        "subtitle": "Bring your 2026 dreams to life among the stars.",
+        "wish_label": "🌟What's on your wish list?",
+        "launch_btn": "Release My Sky Lantern",
         "save_btn": "Save Roadmap Changes",
         "history_title": "✨ Celestial Memories",
         "step_hint": "Action Roadmap (Feel free to refine below)",
@@ -207,7 +207,7 @@ with st.sidebar:
             st.rerun()
 
 # --- 6. Core Wish Interaction ---
-user_wish = st.text_input(T["wish_label"], placeholder="e.g. Master AI development in 2026")
+user_wish = st.text_input(T["wish_label"], placeholder="e.g. I want to take better care of my health.")
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
