@@ -43,7 +43,7 @@ st.markdown(f"""
         color: #ffffff !important;
         font-weight: 500 !important;
     }}
-    /* 强制侧边栏文字为白色 */
+    /* 强制侧边栏标签和文字为白色 */
     [data-testid="stSidebar"] label, [data-testid="stSidebar"] p {{
         color: #ffffff !important;
     }}
@@ -117,7 +117,6 @@ LANGS = {
 # --- 6. 顶部布局：右上角语言切换 ---
 col_title, col_lang = st.columns([7, 1.5])
 with col_lang:
-    # 语言选择放在右上角
     sel_lang = st.selectbox("Language", ["English", "中文"], label_visibility="collapsed")
 
 T = LANGS[sel_lang]
@@ -126,7 +125,7 @@ with col_title:
     st.markdown(f"# 🏮 {T['title']}")
     st.markdown(f"*{T['subtitle']}*")
 
-# --- 7. 侧边栏：账户管理 ---
+# --- 7. 侧边栏：账户管理与登录错误透出 ---
 with st.sidebar:
     st.header("✨ Account")
     u_id = st.session_state.get("u_id")
@@ -142,7 +141,10 @@ with st.sidebar:
                         if res.user:
                             st.session_state["u_id"] = res.user.id
                             st.rerun()
-                    except: st.error("Login failed.")
+                    # 修复：透出真实错误信息，方便排查
+                    except Exception as e: 
+                        st.error(f"Login failed: {str(e)}")
+                
                 if st.button(T["forgot_pw"]):
                     if email:
                         try:
@@ -158,10 +160,8 @@ with st.sidebar:
         if st.button("Sign Out"): st.session_state.clear(); st.rerun()
 
 # --- 8. 核心交互 ---
-# 更新占位符例子
 user_wish = st.text_input(T["wish_label"], placeholder=T["placeholder"])
 
-# 整合所有可用模型
 MODELS_TO_TRY = [
     "gemini-2.5-flash-lite", 
     "gemini-3-flash", 
@@ -178,7 +178,6 @@ if st.button(T["launch_btn"], use_container_width=True):
             success = False
             for model_name in MODELS_TO_TRY:
                 try:
-                    # 循环导入修复后，此处将正常运行
                     result = MyProjectCrew(model_name=model_name).crew().kickoff(inputs={'wish': user_wish})
                     st.session_state["last_plan"] = result.pydantic.dict()
                     st.balloons()
