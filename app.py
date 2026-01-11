@@ -91,6 +91,14 @@ st.markdown(f"""
         50% {{ opacity: 1; transform: scale(1.3); }}
     }}
 
+    /* 强制额度提示文字为白色 */
+    .quota-text {{
+        color: #ffffff !important;
+        font-size: 0.9rem;
+        margin-bottom: 10px;
+        display: block;
+    }}
+
     .ritual-container {{
         position: fixed;
         bottom: 0; left: 50%;
@@ -147,7 +155,7 @@ current_guest_id = raw_guest_id if (raw_guest_id and raw_guest_id != "None") els
 LANGS = {
     "English": {
         "title": "🏮 SkyWishes Portal",
-        "subtitle": "Bring your 2026 dreams to life among the stars.",
+        "subtitle": "Bring your 2026 dreams to life among the stars. You have 5 wishes to make each day ✨",
         "wish_label": "🌟What's on your wish list?",
         "launch_btn": "Release My Sky Lantern",
         "save_btn": "Save Roadmap Changes",
@@ -162,12 +170,13 @@ LANGS = {
         "user_exists": "This email is already registered. Please login.",
         "lantern": "Sky Lantern",
         "auth_mode_label": "Choose Your Path",
-        "quota_error": "You've reached today's wish limit. Come back tomorrow to light another wish ✨",
-        "quota_status": "Daily Sparks: {count} / 5 used"
+        "quota_limit": "You’ve reached today’s wish limit. Come back tomorrow to light another wish ✨",
+        "quota_left": "Wishes left today: {count}",
+        "quota_last": "Last wish for today ✨"
     },
     "中文": {
         "title": "🏮 SkyWishes | 孔明灯广场",
-        "subtitle": "点亮 2026 的期许，让愿望在星空下有迹可循。",
+        "subtitle": "点亮 2026 的期许，让愿望在星空下有迹可循。您每天可以许下 5 个愿望 ✨",
         "wish_label": "许下你的 2026 新年愿望...",
         "launch_btn": "放飞孔明灯",
         "save_btn": "保存计划修改内容",
@@ -182,8 +191,9 @@ LANGS = {
         "user_exists": "该邮箱已注册，请尝试直接登录。",
         "lantern": "孔明灯",
         "auth_mode_label": "选择身份",
-        "quota_error": "今天的愿望额度已满。请明天再来点亮愿望！ ✨",
-        "quota_status": "今日已点亮: {count} / 5"
+        "quota_limit": "You’ve reached today’s wish limit. Come back tomorrow to light another wish ✨",
+        "quota_left": "Wishes left today: {count}",
+        "quota_last": "Last wish for today ✨"
     }
 }
 
@@ -252,9 +262,9 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 7. 额度检查逻辑 (修改：返回具体数值) ---
+# --- 7. 额度查询逻辑 ---
 def get_daily_usage(user_id, guest_id):
-    """查询今日已使用的次数"""
+    """查询今日已使用的次数 (UTC)"""
     try:
         today_start = datetime.now(timezone.utc).strftime('%Y-%m-%dT00:00:00')
         query = supabase.table("wish_history").select("id", count="exact")
@@ -271,25 +281,26 @@ def get_daily_usage(user_id, guest_id):
 # --- 8. 核心愿望交互 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. I hope to make deeper connections with friends and family in 2026")
 
-# 获取并显示实时额度
-usage_count = get_daily_usage(st.session_state.get("u_id"), current_guest_id)
-st.caption(T["quota_status"].format(count=usage_count))
+# 额度实时显示逻辑
+usage = get_daily_usage(st.session_state.get("u_id"), current_guest_id)
+left = 5 - usage
+
+if left > 1:
+    st.markdown(f'<span class="quota-text">{T["quota_left"].format(count=left)}</span>', unsafe_allow_html=True)
+elif left == 1:
+    st.markdown(f'<span class="quota-text">{T["quota_last"]}</span>', unsafe_allow_html=True)
+else:
+    st.markdown(f'<span class="quota-text">{T["quota_limit"]}</span>', unsafe_allow_html=True)
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
-        # 1. 额度预检
-        if usage_count >= 5:
-            st.error(T["quota_error"])
+        if left <= 0:
+            st.error(T["quota_limit"])
         else:
             MODELS_TO_TRY = [
-                "gemini-2.5-flash-lite", 
-                "gemini-2.5-flash", 
-                "gemini-3-flash", 
-                "gemini-2.5-flash-tts",
-                "gemma-3-27b",
-                "gemma-3-12b",
-                "gemma-3-2b",
-                "gemma-3-1b"
+                "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3-flash", 
+                "gemini-2.5-flash-tts", "gemma-3-27b", "gemma-3-12b", 
+                "gemma-3-2b", "gemma-3-1b"
             ]
             
             ritual_placeholder = st.empty()
@@ -315,17 +326,13 @@ if st.button(T["launch_btn"], use_container_width=True):
                             "plan_json": data.dict(),
                             "lang": sel_lang
                         }
-                        if current_guest_id or st.session_state.get("u_id"):
-                            res = supabase.table("wish_history").insert(db_entry).execute()
-                            if res.data:
-                                st.session_state["current_wish_db_id"] = res.data[0]['id']
+                        supabase.table("wish_history").insert(db_entry).execute()
                         
                         st.session_state["last_plan"] = data.dict()
                         success = True
                         break 
                     except Exception as e:
-                        err_str = str(e)
-                        if any(x in err_str for x in ["429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
+                        if any(x in str(e) for x in ["429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
                             continue 
                         else:
                             ritual_placeholder.empty()
@@ -337,7 +344,7 @@ if st.button(T["launch_btn"], use_container_width=True):
                     st.rerun()
                 elif not success:
                     ritual_placeholder.empty()
-                    st.error(T["quota_error"])
+                    st.error(T["quota_limit"])
 
 # --- 9. Kanban 展示与保存 ---
 if "last_plan" in st.session_state:
@@ -360,9 +367,11 @@ if "last_plan" in st.session_state:
                 edited_steps.append(new_s)
         
         if st.button(T["save_btn"], use_container_width=True):
-            if "current_wish_db_id" in st.session_state:
+            # 获取当前最新的记录 ID 进行更新
+            latest = supabase.table("wish_history").select("id").order("created_at", desc=True).limit(1).execute()
+            if latest.data:
                 plan['steps'] = edited_steps
-                supabase.table("wish_history").update({"plan_json": plan}).eq("id", st.session_state["current_wish_db_id"]).execute()
+                supabase.table("wish_history").update({"plan_json": plan}).eq("id", latest.data[0]['id']).execute()
                 st.session_state["last_plan"] = plan
                 st.toast("Modifications saved! 🌟")
 
