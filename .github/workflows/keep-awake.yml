@@ -1,0 +1,19 @@
+name: Keep Streamlit App Awake
+
+on:
+  schedule:
+    - cron: '0 */8 * * *'  # 每 8 小时运行一次
+
+jobs:
+  push-empty-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # 确保 Action 有权推送代码
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make empty commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git commit --allow-empty -m "Keep app awake ✨"
+          git push
