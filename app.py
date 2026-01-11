@@ -162,7 +162,8 @@ LANGS = {
         "user_exists": "This email is already registered. Please login.",
         "lantern": "Sky Lantern",
         "auth_mode_label": "Choose Your Path",
-        "quota_error": "🌟 You've reached today's wish limit. Come back tomorrow to light another wish ✨"
+        "quota_error": "You've reached today's wish limit. Come back tomorrow to light another wish ✨",
+        "quota_status": "Daily Sparks: {count} / 5 used"
     },
     "中文": {
         "title": "🏮 SkyWishes | 孔明灯广场",
@@ -181,7 +182,8 @@ LANGS = {
         "user_exists": "该邮箱已注册，请尝试直接登录。",
         "lantern": "孔明灯",
         "auth_mode_label": "选择身份",
-        "quota_error": "🌟 今天的愿望额度已达上限。请稍等片刻，或明天再来点亮愿望！"
+        "quota_error": "今天的愿望额度已满。请明天再来点亮愿望！ ✨",
+        "quota_status": "今日已点亮: {count} / 5"
     }
 }
 
@@ -250,13 +252,11 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 7. 额度检查函数 ---
-def check_daily_quota(user_id, guest_id):
-    """检查用户或游客今天的愿望次数是否超过 5 次"""
+# --- 7. 额度检查逻辑 (修改：返回具体数值) ---
+def get_daily_usage(user_id, guest_id):
+    """查询今日已使用的次数"""
     try:
-        # 获取 UTC 今天的开始时间
         today_start = datetime.now(timezone.utc).strftime('%Y-%m-%dT00:00:00')
-        
         query = supabase.table("wish_history").select("id", count="exact")
         if user_id:
             query = query.eq("user_id", user_id)
@@ -264,21 +264,21 @@ def check_daily_quota(user_id, guest_id):
             query = query.eq("guest_id", guest_id)
         
         res = query.gte("created_at", today_start).execute()
-        # 如果 count >= 5，则返回 False
-        if res.count is not None and res.count >= 5:
-            return False
-        return True
+        return res.count if res.count is not None else 0
     except Exception:
-        # 如果查询失败，默认允许放飞（或可改为 False 增强安全性）
-        return True
+        return 0
 
-# --- 8. 核心愿望交互：多模型轮询逻辑 ---
+# --- 8. 核心愿望交互 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. I hope to make deeper connections with friends and family in 2026")
+
+# 获取并显示实时额度
+usage_count = get_daily_usage(st.session_state.get("u_id"), current_guest_id)
+st.caption(T["quota_status"].format(count=usage_count))
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
-        # 额度校验
-        if not check_daily_quota(st.session_state.get("u_id"), current_guest_id):
+        # 1. 额度预检
+        if usage_count >= 5:
             st.error(T["quota_error"])
         else:
             MODELS_TO_TRY = [
@@ -337,7 +337,6 @@ if st.button(T["launch_btn"], use_container_width=True):
                     st.rerun()
                 elif not success:
                     ritual_placeholder.empty()
-                    # 这里的 quota_error 在模型全失败时作为兜底显示
                     st.error(T["quota_error"])
 
 # --- 9. Kanban 展示与保存 ---
