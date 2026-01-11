@@ -6,6 +6,7 @@ import streamlit as st
 import uuid
 import time
 import random
+from datetime import datetime, timezone
 from supabase import create_client, Client
 from streamlit_cookies_manager import EncryptedCookieManager
 from my_project.crew import MyProjectCrew
@@ -234,7 +235,6 @@ with st.sidebar:
                             st.rerun()
                     except Exception: st.error("Login failed.")
                 
-                # --- 新增：重置密码功能，位于 Login 正下方 ---
                 if st.button(T["forgot_pw"]):
                     if email:
                         try:
@@ -250,71 +250,97 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-# --- 7. 核心愿望交互：多模型轮询逻辑 ---
+# --- 7. 额度检查函数 ---
+def check_daily_quota(user_id, guest_id):
+    """检查用户或游客今天的愿望次数是否超过 5 次"""
+    try:
+        # 获取 UTC 今天的开始时间
+        today_start = datetime.now(timezone.utc).strftime('%Y-%m-%dT00:00:00')
+        
+        query = supabase.table("wish_history").select("id", count="exact")
+        if user_id:
+            query = query.eq("user_id", user_id)
+        else:
+            query = query.eq("guest_id", guest_id)
+        
+        res = query.gte("created_at", today_start).execute()
+        # 如果 count >= 5，则返回 False
+        if res.count is not None and res.count >= 5:
+            return False
+        return True
+    except Exception:
+        # 如果查询失败，默认允许放飞（或可改为 False 增强安全性）
+        return True
+
+# --- 8. 核心愿望交互：多模型轮询逻辑 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. I hope to make deeper connections with friends and family in 2026")
 
 if st.button(T["launch_btn"], use_container_width=True):
     if user_wish:
-        MODELS_TO_TRY = [
-            "gemini-2.5-flash-lite", 
-            "gemini-2.5-flash", 
-            "gemini-3-flash", 
-            "gemini-2.5-flash-tts",
-            "gemma-3-27b",
-            "gemma-3-12b",
-            "gemma-3-2b",
-            "gemma-3-1b"
-        ]
-        
-        ritual_placeholder = st.empty()
-        ritual_placeholder.markdown("""
-            <div class="ritual-container">
-                <div class="loading-lantern"></div>
-                <div class="firework-burst" style="top:20%; left:48%; animation-delay: 1s;"></div>
-                <div class="firework-burst" style="top:40%; left:52%; animation-delay: 3.5s;"></div>
-            </div>
-        """, unsafe_allow_html=True)
+        # 额度校验
+        if not check_daily_quota(st.session_state.get("u_id"), current_guest_id):
+            st.error(T["quota_error"])
+        else:
+            MODELS_TO_TRY = [
+                "gemini-2.5-flash-lite", 
+                "gemini-2.5-flash", 
+                "gemini-3-flash", 
+                "gemini-2.5-flash-tts",
+                "gemma-3-27b",
+                "gemma-3-12b",
+                "gemma-3-2b",
+                "gemma-3-1b"
+            ]
+            
+            ritual_placeholder = st.empty()
+            ritual_placeholder.markdown("""
+                <div class="ritual-container">
+                    <div class="loading-lantern"></div>
+                    <div class="firework-burst" style="top:20%; left:48%; animation-delay: 1s;"></div>
+                    <div class="firework-burst" style="top:40%; left:52%; animation-delay: 3.5s;"></div>
+                </div>
+            """, unsafe_allow_html=True)
 
-        success = False
-        with st.spinner(T["loading"]):
-            for model_name in MODELS_TO_TRY:
-                try:
-                    result = MyProjectCrew(model_name=model_name).crew().kickoff(inputs={'wish': user_wish, 'language': sel_lang})
-                    data = result.pydantic 
-                    
-                    db_entry = {
-                        "guest_id": current_guest_id,
-                        "user_id": st.session_state.get("u_id"),
-                        "wish_text": user_wish,
-                        "plan_json": data.dict(),
-                        "lang": sel_lang
-                    }
-                    if current_guest_id:
-                        res = supabase.table("wish_history").insert(db_entry).execute()
-                        if res.data:
-                            st.session_state["current_wish_db_id"] = res.data[0]['id']
-                    
-                    st.session_state["last_plan"] = data.dict()
-                    success = True
-                    break 
-                except Exception as e:
-                    err_str = str(e)
-                    # 包含 429 和 503 重试逻辑
-                    if any(x in err_str for x in ["429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
-                        continue 
-                    else:
-                        ritual_placeholder.empty()
-                        st.error(f"Launch failed on {model_name}: {e}")
-                        break
+            success = False
+            with st.spinner(T["loading"]):
+                for model_name in MODELS_TO_TRY:
+                    try:
+                        result = MyProjectCrew(model_name=model_name).crew().kickoff(inputs={'wish': user_wish, 'language': sel_lang})
+                        data = result.pydantic 
+                        
+                        db_entry = {
+                            "guest_id": current_guest_id,
+                            "user_id": st.session_state.get("u_id"),
+                            "wish_text": user_wish,
+                            "plan_json": data.dict(),
+                            "lang": sel_lang
+                        }
+                        if current_guest_id or st.session_state.get("u_id"):
+                            res = supabase.table("wish_history").insert(db_entry).execute()
+                            if res.data:
+                                st.session_state["current_wish_db_id"] = res.data[0]['id']
+                        
+                        st.session_state["last_plan"] = data.dict()
+                        success = True
+                        break 
+                    except Exception as e:
+                        err_str = str(e)
+                        if any(x in err_str for x in ["429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
+                            continue 
+                        else:
+                            ritual_placeholder.empty()
+                            st.error(f"Launch failed on {model_name}: {e}")
+                            break
 
-            if success:
-                st.balloons()
-                st.rerun()
-            elif not success:
-                ritual_placeholder.empty()
-                st.error(T["quota_error"])
+                if success:
+                    st.balloons()
+                    st.rerun()
+                elif not success:
+                    ritual_placeholder.empty()
+                    # 这里的 quota_error 在模型全失败时作为兜底显示
+                    st.error(T["quota_error"])
 
-# --- 8. Kanban 展示与保存 ---
+# --- 9. Kanban 展示与保存 ---
 if "last_plan" in st.session_state:
     plan = st.session_state["last_plan"]
     st.divider()
@@ -341,10 +367,10 @@ if "last_plan" in st.session_state:
                 st.session_state["last_plan"] = plan
                 st.toast("Modifications saved! 🌟")
 
-# --- 9. 历史回顾 ---
+# --- 10. 历史回顾 ---
 st.divider()
 st.subheader(T["history_title"])
-if current_guest_id:
+if current_guest_id or u_id:
     try:
         q = supabase.table("wish_history").select("*")
         if u_id: q = q.eq("user_id", u_id)
