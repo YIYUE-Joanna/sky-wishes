@@ -51,6 +51,17 @@ st.markdown(f"""
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
     }}
+    
+    /* 侧边栏底部固定逻辑：使用 flex 布局将最后一个元素推到底部 */
+    [data-testid="stSidebarUserContent"] > [data-testid="stVerticalBlock"] {{
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 1.5rem);
+    }}
+    [data-testid="stSidebarUserContent"] > [data-testid="stVerticalBlock"] > div:last-child {{
+        margin-top: auto;
+    }}
+
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, 
     [data-testid="stSidebar"] .stCaption, [data-testid="stSidebar"] .stMarkdown p,
@@ -222,66 +233,68 @@ def show_about_modal():
 
 # --- 6. 侧边栏：账户管理 ---
 with st.sidebar:
-    st.header("✨ Account")
-    u_id = st.session_state.get("u_id")
-    
-    if not u_id:
-        st.write(T["auth_welcome"])
-        st.caption(T["auth_benefit"])
-        modes = ["Guest", "Login", "Sign Up"] if sel_lang == "English" else ["访客模式", "登录", "注册"]
-        auth_mode = st.radio(T["auth_mode_label"], modes, label_visibility="collapsed")
+    # 顶部账户容器
+    with st.container():
+        st.header("✨ Account")
+        u_id = st.session_state.get("u_id")
         
-        is_guest = auth_mode in ["Guest", "访客模式"]
-        is_login = auth_mode in ["Login", "登录"]
-        is_signup = auth_mode in ["Sign Up", "注册"]
-
-        if not is_guest:
-            email = st.text_input("Email", placeholder="your@email.com")
-            pw = st.text_input("Password", type="password")
+        if not u_id:
+            st.write(T["auth_welcome"])
+            st.caption(T["auth_benefit"])
+            modes = ["Guest", "Login", "Sign Up"] if sel_lang == "English" else ["访客模式", "登录", "注册"]
+            auth_mode = st.radio(T["auth_mode_label"], modes, label_visibility="collapsed")
             
-            if is_signup and st.button("Create Account" if sel_lang == "English" else "提交注册"):
-                try:
-                    res = supabase.auth.sign_up({"email": email, "password": pw})
-                    if res.user and res.user.identities is not None and len(res.user.identities) == 0:
-                        st.warning(T["user_exists"])
-                    elif res.user:
-                        st.success("Verification email sent!")
-                except Exception as e:
-                    st.error(f"Error: {e}")
+            is_guest = auth_mode in ["Guest", "访客模式"]
+            is_login = auth_mode in ["Login", "登录"]
+            is_signup = auth_mode in ["Sign Up", "注册"]
 
-            if is_login:
-                if st.button("Sign In" if sel_lang == "English" else "立即登录"):
-                    try:
-                        res = supabase.auth.sign_in_with_password({"email": email, "password": pw})
-                        if res.user:
-                            st.session_state["u_id"] = res.user.id
-                            st.session_state["user_email"] = res.user.email
-                            if current_guest_id:
-                                supabase.table("wish_history").update({"user_id": res.user.id}).eq("guest_id", current_guest_id).execute()
-                            st.rerun()
-                    except Exception: st.error("Login failed.")
+            if not is_guest:
+                email = st.text_input("Email", placeholder="your@email.com")
+                pw = st.text_input("Password", type="password")
                 
-                if st.button(T["forgot_pw"]):
-                    if email:
+                if is_signup and st.button("Create Account" if sel_lang == "English" else "提交注册"):
+                    try:
+                        res = supabase.auth.sign_up({"email": email, "password": pw})
+                        if res.user and res.user.identities is not None and len(res.user.identities) == 0:
+                            st.warning(T["user_exists"])
+                        elif res.user:
+                            st.success("Verification email sent!")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+
+                if is_login:
+                    if st.button("Sign In" if sel_lang == "English" else "立即登录"):
                         try:
-                            supabase.auth.reset_password_for_email(email)
-                            st.info(T["reset_sent"])
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                    else:
-                        st.warning(T["reset_error"])
-    else:
-        st.success(f"Online: {st.session_state.get('user_email', 'Member')}")
-        if st.button("Sign Out" if sel_lang == "English" else "退出登录"):
-            st.session_state.clear()
-            st.rerun()
+                            res = supabase.auth.signin_with_password({"email": email, "password": pw})
+                            if res.user:
+                                st.session_state["u_id"] = res.user.id
+                                st.session_state["user_email"] = res.user.email
+                                if current_guest_id:
+                                    supabase.table("wish_history").update({"user_id": res.user.id}).eq("guest_id", current_guest_id).execute()
+                                st.rerun()
+                        except Exception: st.error("Login failed.")
+                    
+                    if st.button(T["forgot_pw"]):
+                        if email:
+                            try:
+                                supabase.auth.reset_password_for_email(email)
+                                st.info(T["reset_sent"])
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+                        else:
+                            st.warning(T["reset_error"])
+        else:
+            st.success(f"Online: {st.session_state.get('user_email', 'Member')}")
+            if st.button("Sign Out" if sel_lang == "English" else "退出登录"):
+                st.session_state.clear()
+                st.rerun()
 
     # --- 侧边栏最底部按钮 ---
-    # 使用多个空行将内容推向底部
-    for _ in range(12): st.sidebar.write("") 
-    st.sidebar.markdown("---")
-    if st.sidebar.button("🌙 About the Creator", use_container_width=True):
-        show_about_modal()
+    # 此容器会被 CSS 自动推向侧边栏底部
+    with st.container():
+        st.markdown("---")
+        if st.button("🌙 About the Creator", use_container_width=True):
+            show_about_modal()
 
 # --- 7. 额度查询逻辑 ---
 def get_daily_usage(user_id, guest_id):
