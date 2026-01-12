@@ -46,22 +46,33 @@ st.markdown(f"""
         100% {{ background-position: 0% 50%; }}
     }}
 
-    /* 侧边栏样式 - 确保所有文字和标签为纯白 */
+    /* 侧边栏整体样式 */
     [data-testid="stSidebar"] {{
         background-color: #010409 !important;
         border-right: 1px solid #30363d;
     }}
     
-    /* 侧边栏底部固定逻辑：使用 flex 布局将最后一个元素推到底部 */
-    [data-testid="stSidebarUserContent"] > [data-testid="stVerticalBlock"] {{
-        display: flex;
-        flex-direction: column;
-        height: calc(100vh - 1.5rem);
-    }}
-    [data-testid="stSidebarUserContent"] > [data-testid="stVerticalBlock"] > div:last-child {{
-        margin-top: auto;
+    /* 核心改动：侧边栏布局逻辑 */
+    [data-testid="stSidebarUserContent"] {{
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100vh !important;
     }}
 
+    /* 让账户内容区域可滚动（如果内容很多） */
+    [data-testid="stSidebarUserContent"] > div:nth-child(1) {{
+        flex: 1 1 auto;
+        overflow-y: auto;
+    }}
+
+    /* 让最后一个容器（About 按钮所在）强制沉底 */
+    [data-testid="stSidebarUserContent"] > div:last-child {{
+        flex: 0 0 auto;
+        margin-top: auto;
+        padding-bottom: 2rem;
+    }}
+
+    /* 侧边栏文字颜色 */
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, 
     [data-testid="stSidebar"] .stCaption, [data-testid="stSidebar"] .stMarkdown p,
@@ -215,7 +226,7 @@ def show_about_modal():
         div[data-testid="stDialog"] div[role="dialog"] {
             background-color: #0d1117 !important;
             border: 1px solid #30363d;
-            color: #cbd5e0 !important; /* 使用浅灰色提高可读性 */
+            color: #cbd5e0 !important;
         }
         div[data-testid="stDialog"] p {
             color: #cbd5e0 !important;
@@ -233,7 +244,7 @@ def show_about_modal():
 
 # --- 6. 侧边栏：账户管理 ---
 with st.sidebar:
-    # 顶部账户容器
+    # 内容区域：账户相关
     with st.container():
         st.header("✨ Account")
         u_id = st.session_state.get("u_id")
@@ -265,7 +276,7 @@ with st.sidebar:
                 if is_login:
                     if st.button("Sign In" if sel_lang == "English" else "立即登录"):
                         try:
-                            res = supabase.auth.signin_with_password({"email": email, "password": pw})
+                            res = supabase.auth.sign_in_with_password({"email": email, "password": pw})
                             if res.user:
                                 st.session_state["u_id"] = res.user.id
                                 st.session_state["user_email"] = res.user.email
@@ -289,15 +300,15 @@ with st.sidebar:
                 st.session_state.clear()
                 st.rerun()
 
-    # --- 侧边栏最底部按钮 ---
-    # 此容器会被 CSS 自动推向侧边栏底部
+    # 固定底部区域：About 按钮
     with st.container():
         st.markdown("---")
-        if st.button("🌙 About the Creator", use_container_width=True):
+        if st.button("🌙 About the Creator", use_container_width=True, key="about_btn"):
             show_about_modal()
 
 # --- 7. 额度查询逻辑 ---
 def get_daily_usage(user_id, guest_id):
+    """查询今日已使用的次数 (UTC)"""
     try:
         today_start = datetime.now(timezone.utc).strftime('%Y-%m-%dT00:00:00')
         query = supabase.table("wish_history").select("id", count="exact")
@@ -314,6 +325,7 @@ def get_daily_usage(user_id, guest_id):
 # --- 8. 核心愿望交互 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. I hope to make deeper connections with friends and family in 2026")
 
+# 额度实时显示逻辑
 usage = get_daily_usage(st.session_state.get("u_id"), current_guest_id)
 left = 5 - usage
 
@@ -329,7 +341,12 @@ if st.button(T["launch_btn"], use_container_width=True):
         if left <= 0:
             st.error(T["quota_limit"])
         else:
-            MODELS_TO_TRY = ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
+            MODELS_TO_TRY = [
+                "gemini-2.5-flash-lite", 
+                "gemini-2.5-flash", 
+                "gemini-3-flash", 
+                "gemini-2.5-flash-tts"
+            ]
             
             ritual_placeholder = st.empty()
             ritual_placeholder.markdown("""
@@ -363,7 +380,8 @@ if st.button(T["launch_btn"], use_container_width=True):
                 if success:
                     st.balloons()
                     st.rerun()
-                else:
+                elif not success:
+                    ritual_placeholder.empty()
                     st.error(T["quota_limit"])
 
 # --- 9. Kanban 展示与保存 ---
