@@ -74,6 +74,14 @@ st.markdown(f"""
         100% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
     }}
 
+    /* 强制额度提示文字为白色 */
+    .quota-text {{
+        color: #ffffff !important;
+        font-size: 0.9rem;
+        margin-bottom: 10px;
+        display: block;
+    }}
+
     .star-layer {{
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
@@ -89,14 +97,6 @@ st.markdown(f"""
     @keyframes twinkle {{
         0%, 100% {{ opacity: 0.3; transform: scale(1); }}
         50% {{ opacity: 1; transform: scale(1.3); }}
-    }}
-
-    /* 强制额度提示文字为白色 */
-    .quota-text {{
-        color: #ffffff !important;
-        font-size: 0.9rem;
-        margin-bottom: 10px;
-        display: block;
     }}
 
     .ritual-container {{
@@ -206,6 +206,18 @@ with top_col1:
     st.title(T["title"])
     st.markdown(f"*{T['subtitle']}*")
 
+# --- 额外功能：关于制作者弹窗 ---
+@st.dialog("About the creator")
+def show_about_modal():
+    st.write("Hi, I’m Qiao (Joanna) 👋")
+    st.write("I’m a creative technologist exploring how AI can turn ideas into something real.")
+    st.write("Sky Wishes is my way of creating a quiet space for people to send their wishes and dreams into the sky.")
+    st.write("Sometimes all we need is a small moment to slow down, reflect, and feel understood.")
+    st.write("You can find more of my work and ways to connect on my website.: https://yiyueqiao.vercel.app/")
+    st.write("Feel free to reach out :-)")
+    if st.button("Close"):
+        st.rerun()
+
 # --- 6. 侧边栏：账户管理 ---
 with st.sidebar:
     st.header("✨ Account")
@@ -261,6 +273,11 @@ with st.sidebar:
         if st.button("Sign Out" if sel_lang == "English" else "退出登录"):
             st.session_state.clear()
             st.rerun()
+
+    # 在侧边栏最底部添加 About 按钮
+    st.markdown("---")
+    if st.button("🌙 About the creator", use_container_width=True):
+        show_about_modal()
 
 # --- 7. 额度查询逻辑 ---
 def get_daily_usage(user_id, guest_id):
