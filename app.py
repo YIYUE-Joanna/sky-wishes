@@ -74,7 +74,6 @@ st.markdown(f"""
         100% {{ box-shadow: 0 0 5px rgba(210, 153, 34, 0.2); }}
     }}
 
-    /* 强制额度提示文字为白色 */
     .quota-text {{
         color: #ffffff !important;
         font-size: 0.9rem;
@@ -119,16 +118,6 @@ st.markdown(f"""
     @keyframes rise-ritual {{
         0% {{ bottom: -10%; opacity: 1; }}
         100% {{ bottom: 110%; opacity: 0; }}
-    }}
-    .firework-burst {{
-        position: absolute;
-        width: 4px; height: 4px;
-        border-radius: 50%;
-        animation: explode 2.5s infinite ease-out;
-    }}
-    @keyframes explode {{
-        0% {{ transform: scale(1); opacity: 1; box-shadow: 0 0 0 white; }}
-        100% {{ transform: scale(35); opacity: 0; box-shadow: 0 0 20px 5px orange, 15px -15px 20px red, -15px 15px 20px yellow; }}
     }}
 
     .stTextInput label, .stTextArea label, .stSelectbox label {{ color: #ffffff !important; }}
@@ -207,15 +196,19 @@ with top_col1:
     st.markdown(f"*{T['subtitle']}*")
 
 # --- 额外功能：关于制作者弹窗 ---
-@st.dialog("About the creator")
+@st.dialog("About the Creator")
 def show_about_modal():
-    # 注入弹窗专用夜间背景 CSS
+    # 注入弹窗专用夜间背景和浅灰色文字 CSS
     st.markdown("""
         <style>
         div[data-testid="stDialog"] div[role="dialog"] {
             background-color: #0d1117 !important;
             border: 1px solid #30363d;
-            color: #e6edf3;
+            color: #cbd5e0 !important; /* 使用浅灰色提高可读性 */
+        }
+        div[data-testid="stDialog"] p {
+            color: #cbd5e0 !important;
+            line-height: 1.6;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -223,7 +216,7 @@ def show_about_modal():
     st.write("I’m a creative technologist exploring how AI can turn ideas into something real.")
     st.write("Sky Wishes is my way of creating a quiet space for people to send their wishes and dreams into the sky.")
     st.write("Sometimes all we need is a small moment to slow down, reflect, and feel understood.")
-    st.write("You can find more of my work and ways to connect on my website.: https://yiyueqiao.vercel.app/")
+    st.write("You can find more of my work and ways to connect on my website: https://yiyueqiao.vercel.app/")
     st.write("Feel free to reach out :-)")
     st.markdown("<div style='text-align: center; padding-top: 25px; font-size: 1.2rem;'>✨ ⭐ 🌟 ⭐ ✨</div>", unsafe_allow_html=True)
 
@@ -284,13 +277,14 @@ with st.sidebar:
             st.rerun()
 
     # --- 侧边栏最底部按钮 ---
-    st.markdown("---")
-    if st.button("🌙 About the creator", use_container_width=True):
+    # 使用多个空行将内容推向底部
+    for _ in range(12): st.sidebar.write("") 
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🌙 About the Creator", use_container_width=True):
         show_about_modal()
 
 # --- 7. 额度查询逻辑 ---
 def get_daily_usage(user_id, guest_id):
-    """查询今日已使用的次数 (UTC)"""
     try:
         today_start = datetime.now(timezone.utc).strftime('%Y-%m-%dT00:00:00')
         query = supabase.table("wish_history").select("id", count="exact")
@@ -307,7 +301,6 @@ def get_daily_usage(user_id, guest_id):
 # --- 8. 核心愿望交互 ---
 user_wish = st.text_input(T["wish_label"], placeholder="e.g. I hope to make deeper connections with friends and family in 2026")
 
-# 额度实时显示逻辑
 usage = get_daily_usage(st.session_state.get("u_id"), current_guest_id)
 left = 5 - usage
 
@@ -323,18 +316,12 @@ if st.button(T["launch_btn"], use_container_width=True):
         if left <= 0:
             st.error(T["quota_limit"])
         else:
-            MODELS_TO_TRY = [
-                "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3-flash", 
-                "gemini-2.5-flash-tts", "gemma-3-27b", "gemma-3-12b", 
-                "gemma-3-2b", "gemma-3-1b"
-            ]
+            MODELS_TO_TRY = ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
             
             ritual_placeholder = st.empty()
             ritual_placeholder.markdown("""
                 <div class="ritual-container">
                     <div class="loading-lantern"></div>
-                    <div class="firework-burst" style="top:20%; left:48%; animation-delay: 1s;"></div>
-                    <div class="firework-burst" style="top:40%; left:52%; animation-delay: 3.5s;"></div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -357,19 +344,13 @@ if st.button(T["launch_btn"], use_container_width=True):
                         st.session_state["last_plan"] = data.dict()
                         success = True
                         break 
-                    except Exception as e:
-                        if any(x in str(e) for x in ["429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
-                            continue 
-                        else:
-                            ritual_placeholder.empty()
-                            st.error(f"Launch failed on {model_name}: {e}")
-                            break
+                    except Exception:
+                        continue
 
                 if success:
                     st.balloons()
                     st.rerun()
-                elif not success:
-                    ritual_placeholder.empty()
+                else:
                     st.error(T["quota_limit"])
 
 # --- 9. Kanban 展示与保存 ---
