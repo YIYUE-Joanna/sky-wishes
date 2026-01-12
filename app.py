@@ -209,14 +209,23 @@ with top_col1:
 # --- 额外功能：关于制作者弹窗 ---
 @st.dialog("About the creator")
 def show_about_modal():
+    # 注入弹窗专用夜间背景 CSS
+    st.markdown("""
+        <style>
+        div[data-testid="stDialog"] div[role="dialog"] {
+            background-color: #0d1117 !important;
+            border: 1px solid #30363d;
+            color: #e6edf3;
+        }
+        </style>
+    """, unsafe_allow_html=True)
     st.write("Hi, I’m Qiao (Joanna) 👋")
     st.write("I’m a creative technologist exploring how AI can turn ideas into something real.")
     st.write("Sky Wishes is my way of creating a quiet space for people to send their wishes and dreams into the sky.")
     st.write("Sometimes all we need is a small moment to slow down, reflect, and feel understood.")
     st.write("You can find more of my work and ways to connect on my website.: https://yiyueqiao.vercel.app/")
     st.write("Feel free to reach out :-)")
-    if st.button("Close"):
-        st.rerun()
+    st.markdown("<div style='text-align: center; padding-top: 25px; font-size: 1.2rem;'>✨ ⭐ 🌟 ⭐ ✨</div>", unsafe_allow_html=True)
 
 # --- 6. 侧边栏：账户管理 ---
 with st.sidebar:
@@ -274,7 +283,7 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-    # 在侧边栏最底部添加 About 按钮
+    # --- 侧边栏最底部按钮 ---
     st.markdown("---")
     if st.button("🌙 About the creator", use_container_width=True):
         show_about_modal()
@@ -384,7 +393,6 @@ if "last_plan" in st.session_state:
                 edited_steps.append(new_s)
         
         if st.button(T["save_btn"], use_container_width=True):
-            # 获取当前最新的记录 ID 进行更新
             latest = supabase.table("wish_history").select("id").order("created_at", desc=True).limit(1).execute()
             if latest.data:
                 plan['steps'] = edited_steps
