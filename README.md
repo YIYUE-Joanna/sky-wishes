@@ -1,54 +1,69 @@
-# MyProject Crew
+## 🏮 SkyWishes Portal
+Bring your 2026 dreams to life among the stars.
 
-Welcome to the MyProject Crew project, powered by [crewAI](https://crewai.com). This template is designed to help you set up a multi-agent AI system with ease, leveraging the powerful and flexible framework provided by crewAI. Our goal is to enable your agents to collaborate effectively on complex tasks, maximizing their collective intelligence and capabilities.
+SkyWishes is a creative sanctuary designed to help you slow down, reflect, and send your aspirations into the digital firmament. This project leverages the crewAI framework to coordinate a team of AI agents—the Wish Architect Crew—who work together to validate, refine, and transform your wishes into actionable roadmaps.
 
-## Installation
+## ✨ Features
+Celestial Narrative: A serene, interactive experience for releasing "Sky Lanterns".
 
-Ensure you have Python >=3.10 <3.14 installed on your system. This project uses [UV](https://docs.astral.sh/uv/) for dependency management and package handling, offering a seamless setup and execution experience.
+Wish Architect Crew: Two specialized agents powered by Google Gemini models collaborate to ensure your wishes are both protected and planned for.
 
-First, if you haven't already, install uv:
+Action Roadmaps: Receive more than just a summary; get a structured Kanban-style plan to make your wish a reality.
 
-```bash
+Cross-Device Sync: Integrated with Supabase for secure user authentication and historical wish tracking.
+
+Daily Rituals: Limited to 5 wishes per day to encourage intentionality and reflection.
+
+## 🛠️ Tech Stack
+Framework: crewAI (Multi-agent orchestration)
+
+Frontend: Streamlit (Interactive web portal)
+
+Intelligence: Google Gemini 2.5/3 Flash
+
+Database: Supabase (Auth & History)
+
+Deployment: Streamlit Cloud with GitHub Actions for 24/7 "Keep-Awake" automation.
+
+## 🚀 Quick Start
+Installation
+Ensure you have Python ^3.10 and uv installed. This project uses uv for lightning-fast dependency management.
+
+Bash
+
+# Install uv if you haven't already
 pip install uv
-```
 
-Next, navigate to your project directory and install the dependencies:
+# Install project dependencies
+uv sync
+Configuration
+Environment Variables: Create a .env file in the root directory:
 
-(Optional) Lock the dependencies and install them by using the CLI command:
-```bash
-crewai install
-```
-### Customizing
+Code snippet
 
-**Add your `OPENAI_API_KEY` into the `.env` file**
+GOOGLE_API_KEY=your_gemini_api_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_anon_key
+Agent Logic:
 
-- Modify `src/my_project/config/agents.yaml` to define your agents
-- Modify `src/my_project/config/tasks.yaml` to define your tasks
-- Modify `src/my_project/crew.py` to add your own logic, tools and specific args
-- Modify `src/my_project/main.py` to add custom inputs for your agents and tasks
+Modify src/my_project/config/agents.yaml to adjust the personalities of the Wish Guard and Wish Architect.
 
-## Running the Project
+Edit src/my_project/crew.py to refine the collaborative logic.
 
-To kickstart your crew of AI agents and begin task execution, run this from the root folder of your project:
+Running Locally
+Bash
 
-```bash
-$ crewai run
-```
+streamlit run app.py
+## 🧠 Understanding the Crew
+The Wish Architect Crew operates through two primary agents:
 
-This command initializes the my_project Crew, assembling the agents and assigning them tasks as defined in your configuration.
+The Wish Guard: Ensures every wish released into the sky is respectful and safe, acting as a gentle gatekeeper for the celestial portal.
 
-This example, unmodified, will run the create a `report.md` file with the output of a research on LLMs in the root folder.
+The Wish Architect: A creative strategist that takes your dream and breaks it down into clear, achievable steps, providing a sense of direction and hope.
 
-## Understanding Your Crew
+## 🌙 About the Creator
+Hi, I’m Qiao (Joanna) 👋
 
-The my_project Crew is composed of multiple AI agents, each with unique roles, goals, and tools. These agents collaborate on a series of tasks, defined in `config/tasks.yaml`, leveraging their collective skills to achieve complex objectives. The `config/agents.yaml` file outlines the capabilities and configurations of each agent in your crew.
+I’m a Creative Technologist exploring the intersection of AI, arts, and narrative.
 
-## Support
-
-For support, questions, or feedback regarding the MyProject Crew or crewAI.
-- Visit our [documentation](https://docs.crewai.com)
-- Reach out to us through our [GitHub repository](https://github.com/joaomdmoura/crewai)
-- [Join our Discord](https://discord.com/invite/X4JWnZnxPb)
-- [Chat with our docs](https://chatg.pt/DWjSBZn)
-
-Let's create wonders together with the power and simplicity of crewAI.
+Portfolio: yiyueqiao.vercel.app
